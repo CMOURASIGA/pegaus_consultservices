@@ -1,7 +1,7 @@
 # FASE 01 - PEGASUS CORE V1
 
 ## 1. Objetivo
-Entregar a primeira versão utilizável do Pegasus como assistente pessoal/profissional privado de Christian, executado em infraestrutura própria, com conversa por texto e voz, memória seletiva, contexto, documentos, integrações iniciais, tarefas persistentes, segurança, observabilidade e proatividade controlada.
+Entregar a primeira versão utilizável do Pegasus como assistente pessoal/profissional privado de Christian, executado em infraestrutura própria, com conversa por texto e voz, memória seletiva, contexto, documentos, integrações iniciais, tarefas persistentes, segurança, observabilidade, proatividade controlada, percepção visual autorizada e capacidade de atuar em máquinas previamente autorizadas por meio do Device Agent.
 
 A V1 deve ser útil diariamente, mas não deve tentar implementar toda a visão futura já documentada.
 
@@ -14,7 +14,9 @@ Tudo que não estiver marcado como requisito V1 nesta fase permanece arquitetura
 - voz streaming/full-duplex com interrupção quando suportada pela stack escolhida;
 - Pegasus Core desacoplado de modelo específico;
 - AI Router inicial com tiers FAST, BALANCED e REASONING;
-- suporte multimodal para imagens e documentos;
+- suporte multimodal para imagens, documentos e visão sob demanda;
+- Vision Gateway e Presence Engine iniciais;
+- câmera autorizada e Screen Context sob comando;
 - Memory Curator e memória seletiva;
 - Context Engine e Context Budget iniciais;
 - PostgreSQL/Supabase conforme arquitetura;
@@ -22,6 +24,13 @@ Tudo que não estiver marcado como requisito V1 nesta fase permanece arquitetura
 - entidades básicas de pessoas, projetos, assuntos, objetivos e relações;
 - Tasks persistentes e assíncronas;
 - Decision Guard;
+- Device Gateway básico;
+- Device Agent Windows mínimo, explicitamente pareado/autorizado;
+- capabilities locais granulares e auditáveis;
+- filesystem restrito a diretórios autorizados;
+- command runner controlado para diagnóstico/desenvolvimento;
+- WAITING_DEVICE/retomada segura de Tasks dependentes de dispositivo;
+- Meeting Mode com LISTENING e COPILOT MODE iniciais;
 - integrações iniciais Google Drive, Gmail, Calendar e GitHub com prioridade para leitura/consulta;
 - Attention Engine inicial;
 - briefing proativo;
@@ -29,6 +38,7 @@ Tudo que não estiver marcado como requisito V1 nesta fase permanece arquitetura
 - Control Center inicial;
 - custos de IA e saúde básica;
 - autenticação forte, sessões e Passkey/WebAuthn quando suportado;
+- Continuous Identity & Presence preparado para privacy lock;
 - auditoria;
 - Emergency Lock;
 - backup e restore documentados/testáveis;
@@ -39,7 +49,14 @@ Tudo que não estiver marcado como requisito V1 nesta fase permanece arquitetura
 Não implementar na primeira entrega, salvo alteração formal de escopo:
 - reconhecimento biométrico de terceiros por voz como identidade confiável;
 - voz como fator de autenticação;
+- autenticação facial própria baseada em banco biométrico;
 - Participant Mode autônomo em reuniões;
+- bot nativo completo para todas as plataformas de reunião;
+- automação universal de qualquer aplicativo desktop;
+- controle irrestrito do sistema operacional;
+- shell/root/admin autônomo;
+- captura silenciosa/contínua de tela;
+- instalação automática do Agent em máquina de terceiros;
 - criação autônoma avançada de Skills em produção;
 - WhatsApp, SMS e múltiplos mensageiros;
 - dezenas de integrações externas;
@@ -86,8 +103,8 @@ Aceite:
 - consumo básico registrado;
 - incerteza/falha não é mascarada como sucesso.
 
-### Sprint 4 - Chat, multimodal e voz
-Entregar UI principal, anexos e experiência de voz V1.
+### Sprint 4 - Chat, multimodal, voz e visão sob demanda
+Entregar UI principal, anexos, experiência de voz V1, câmera autorizada e Screen Context inicial.
 
 Aceite:
 - texto funciona em desktop/mobile;
@@ -95,7 +112,11 @@ Aceite:
 - voz entra e resposta de voz sai;
 - interrupção do usuário cancela/suspende fala do Pegasus rapidamente;
 - nova informação é incorporada ao contexto;
-- voz e texto compartilham a mesma conversa.
+- voz e texto compartilham a mesma conversa;
+- câmera somente inicia mediante permissão;
+- usuário pode solicitar análise de imagem/câmera/tela;
+- desligar câmera interrompe processamento visual;
+- observação visual é distinguida de hipótese/inferência.
 
 ### Sprint 5 - Memory Curator e Context Engine
 Entregar memória seletiva, retrieval, contexto temporal básico, proveniência e budget.
@@ -130,19 +151,38 @@ Aceite:
 - leitura externa não implica autorização de escrita;
 - operações são auditáveis.
 
-### Sprint 8 - Tasks e Decision Guard
-Entregar tarefas persistentes, estados, retomada, subtasks e fronteiras de execução.
+### Sprint 8 - Tasks, Decision Guard e Device Gateway
+Entregar tarefas persistentes, estados, retomada, subtasks, fronteiras de execução e mediação cloud para dispositivos.
 
 Aceite:
 - Task sobrevive a encerramento da conversa;
 - progresso é persistido;
-- WAITING_APPROVAL e WAITING_EXTERNAL funcionam;
+- WAITING_APPROVAL, WAITING_EXTERNAL e WAITING_DEVICE funcionam;
 - falha recuperável não apaga progresso;
 - cancelamento funciona;
 - conclusão é validada antes de COMPLETED;
-- ação não autorizada é bloqueada pelo Guard.
+- ação não autorizada é bloqueada pelo Guard;
+- dispositivo pode ser pareado/revogado;
+- heartbeat/status do dispositivo é visível;
+- command/tool local fora da capability concedida é negado.
 
-### Sprint 9 - Attention Engine e Briefing
+### Sprint 9 - Device Agent Windows e Meeting Copilot
+Entregar Device Agent Windows mínimo e Meeting Copilot V1.
+
+Aceite:
+- Agent pareado conecta ao Device Gateway de forma autenticada;
+- Screen Context funciona sob comando;
+- filesystem respeita diretórios autorizados;
+- command runner é restrito e auditável;
+- dispositivo offline coloca Task dependente em WAITING_DEVICE;
+- retorno online permite retomada segura sem duplicar ação;
+- câmera/microfone seguem permissões;
+- Meeting Mode LISTENING registra contexto autorizado;
+- COPILOT MODE produz orientações baseadas em evidências observáveis;
+- Pegasus não afirma emoção/intenção como fato a partir de expressão corporal;
+- reunião pode gerar resumo, decisões, pendências, responsáveis e recomendações de condução.
+
+### Sprint 10 - Attention Engine e Briefing
 Entregar proatividade inicial, relevância, agrupamento e briefing.
 
 Aceite:
@@ -153,7 +193,7 @@ Aceite:
 - rotina/descanso adaptativos começam como inferência corrigível;
 - Pegasus não amplia autonomia para resolver um alerta.
 
-### Sprint 10 - Control Center e observabilidade
+### Sprint 11 - Control Center e observabilidade
 Entregar painel administrativo mínimo operacional.
 
 Aceite:
@@ -162,22 +202,25 @@ Aceite:
 - Activity Timeline disponível;
 - integrações exibem status;
 - Tasks e execuções consultáveis;
+- dispositivos/Agents exibem status, trust level, capabilities e possibilidade de revogação;
 - sessões consultáveis/revogáveis;
 - secrets nunca são exibidos.
 
-### Sprint 11 - Segurança, backup e recuperação
+### Sprint 12 - Segurança, backup e recuperação
 Aplicar hardening, backups, Emergency Lock, auditoria e testes de recuperação.
 
 Aceite:
 - backup executado e evidenciado;
 - procedimento de restore documentado e testado em ambiente seguro;
 - Emergency Lock impede novas ações externas conforme política;
-- auditoria cobre ações críticas;
+- auditoria cobre ações críticas e Device Tools;
 - dados SECRET não entram em prompts;
-- prompt injection possui testes mínimos.
+- prompt injection possui testes mínimos;
+- Device Agent falha fechado quando policy/backend não puder validar nova ação;
+- revogação de dispositivo impede novas execuções.
 
-### Sprint 12 - Hardening, testes e produção
-Consolidar V1, corrigir falhas, testar mobile/PWA, desempenho, segurança e implantação.
+### Sprint 13 - Hardening, testes e produção
+Consolidar V1, corrigir falhas, testar mobile/PWA, Agent Windows, desempenho, segurança e implantação.
 
 Aceite:
 - fluxos críticos possuem testes;
@@ -185,7 +228,8 @@ Aceite:
 - produção possui healthcheck e observabilidade;
 - rollback está documentado;
 - custo inicial pode ser acompanhado;
-- documentação corresponde ao sistema entregue.
+- documentação corresponde ao sistema entregue;
+- fluxo completo Web + Device Agent + Task + Meeting Copilot foi validado.
 
 ## 6. Definition of Done global
 Uma funcionalidade só está pronta quando:
@@ -202,15 +246,17 @@ Uma funcionalidade só está pronta quando:
 ## 7. Ordem de implementação
 O desenvolvedor deve respeitar dependências. Não iniciar automação/autonomia antes de Auth, Core, Context, segurança e Decision Guard estarem suficientemente estabelecidos.
 
+Device Agent não deve receber poder irrestrito na primeira implementação. Priorizar leitura/contexto, capabilities explícitas e execução controlada antes de expandir automação local.
+
 ## 8. Estratégia de custos
 Durante desenvolvimento:
 - utilizar modelos econômicos para testes repetitivos;
 - mocks/fakes para integrações quando possível;
-- limitar voz contínua em testes automatizados;
+- limitar voz/vídeo contínuos em testes automatizados;
 - registrar consumo desde Sprint 3;
-- evitar enviar documentos integrais aos modelos;
+- evitar enviar documentos, telas ou vídeo integrais aos modelos quando eventos/amostras forem suficientes;
 - utilizar Context Budget;
 - definir teto operacional e alertas antes de produção.
 
 ## 9. Critério para liberação V1
-A V1 pode ser considerada pronta para uso real quando Sprints 1-12 atenderem aos critérios críticos, segurança e restore tiverem sido validados e Christian conseguir executar um fluxo completo: autenticar -> conversar por texto/voz -> fornecer documento -> recuperar memória/contexto -> consultar integração -> criar/acompanhar Task -> receber briefing/notificação -> revisar execução no Control Center.
+A V1 pode ser considerada pronta para uso real quando Sprints 1-13 atenderem aos critérios críticos, segurança e restore tiverem sido validados e Christian conseguir executar um fluxo completo: autenticar -> conversar por texto/voz -> fornecer documento -> usar câmera/tela sob comando -> recuperar memória/contexto -> consultar integração -> parear máquina autorizada -> executar Tool local restrita -> criar/acompanhar Task -> colocar Task em WAITING_DEVICE e retomar -> usar Meeting Copilot -> receber briefing/notificação -> revisar execução no Control Center.
