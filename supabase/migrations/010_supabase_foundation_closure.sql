@@ -9,21 +9,29 @@ drop policy if exists recovery_codes_owner_select on public.recovery_codes;
 revoke all privileges on table public.recovery_codes from public, anon, authenticated;
 
 -- Trusted backend operations require explicit object privileges in addition to
--- service_role's RLS bypass. Earlier hardening preserved the role but the
--- manually-created objects did not retain effective CRUD privileges.
+-- service_role's RLS bypass. Grant only the operational/backend-managed tables;
+-- owner-managed tables continue to use their explicit client access model.
 grant usage on schema public to service_role;
-grant select, insert, update, delete on all tables in schema public to service_role;
-grant usage, select, update on all sequences in schema public to service_role;
-
-alter default privileges in schema public
-  grant select, insert, update, delete on tables to service_role;
-alter default privileges in schema public
-  grant usage, select, update on sequences to service_role;
-
-alter default privileges for role supabase_admin in schema public
-  grant select, insert, update, delete on tables to service_role;
-alter default privileges for role supabase_admin in schema public
-  grant usage, select, update on sequences to service_role;
+grant select, insert, update, delete on table
+  public.device_events,
+  public.ai_usage,
+  public.audit_events,
+  public.document_chunks,
+  public.integration_capabilities,
+  public.granted_permissions,
+  public.integration_events,
+  public.tools,
+  public.tool_capabilities,
+  public.skill_versions,
+  public.skill_tools,
+  public.decision_inbox_items,
+  public.approvals,
+  public.approval_events,
+  public.pegasus_sessions,
+  public.device_pairing_challenges,
+  public.recovery_codes,
+  public.auth_security_events
+to service_role;
 
 -- Avoid per-row re-evaluation of auth.uid() in the existing owner policies.
 -- Only policies that still contain a direct auth.uid() call are changed.
