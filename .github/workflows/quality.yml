@@ -23,3 +23,19 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Smoke test standalone server
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-publishable-key-not-a-secret
+        run: |
+          HOSTNAME=127.0.0.1 PORT=3000 node apps/web/.next/standalone/apps/web/server.js &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..15}; do
+            curl --fail --silent http://127.0.0.1:3000/ > /dev/null && break
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3000/ > /dev/null
+          HEALTH_STATUS=$(curl --silent --output /tmp/health.json --write-out '%{http_code}' http://127.0.0.1:3000/api/health)
+          test "$HEALTH_STATUS" = "200" -o "$HEALTH_STATUS" = "503"
+          node -e "const fs=require('fs');const h=JSON.parse(fs.readFileSync('/tmp/health.json'));if(!['healthy','degraded','unavailable'].includes(h.status))process.exit(1)"
