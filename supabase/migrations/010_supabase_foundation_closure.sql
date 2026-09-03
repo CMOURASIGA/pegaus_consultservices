@@ -8,6 +8,23 @@ begin;
 drop policy if exists recovery_codes_owner_select on public.recovery_codes;
 revoke all privileges on table public.recovery_codes from public, anon, authenticated;
 
+-- Trusted backend operations require explicit object privileges in addition to
+-- service_role's RLS bypass. Earlier hardening preserved the role but the
+-- manually-created objects did not retain effective CRUD privileges.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;
+grant usage, select, update on all sequences in schema public to service_role;
+
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges in schema public
+  grant usage, select, update on sequences to service_role;
+
+alter default privileges for role supabase_admin in schema public
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges for role supabase_admin in schema public
+  grant usage, select, update on sequences to service_role;
+
 -- Avoid per-row re-evaluation of auth.uid() in the existing owner policies.
 -- Only policies that still contain a direct auth.uid() call are changed.
 do $migration$
