@@ -1,0 +1,25 @@
+:root { color-scheme: light; --blue: #0b4ea2; --ink: #142033; --muted: #667085; --line: #dbe3ee; --soft: #f5f8fc; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: #fff; color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+body { min-height: 100vh; }
+.shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+.header { height: 88px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.brand { display: flex; gap: 12px; align-items: center; }
+.brand div { display: grid; gap: 2px; }
+.brand strong { font-size: 18px; }
+.brand small { color: var(--muted); }
+.mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: var(--blue); color: #fff; font-weight: 700; }
+.status { display: flex; align-items: center; gap: 8px; color: #31533e; font-size: 14px; }
+.status i { width: 9px; height: 9px; background: #2d8a4e; border-radius: 50%; }
+.hero { padding: 96px 0 56px; max-width: 760px; }
+.eyebrow { color: var(--blue) !important; font-weight: 700; letter-spacing: .12em; font-size: 13px !important; }
+.hero h1 { margin: 12px 0 18px; font-size: clamp(38px, 7vw, 70px); line-height: 1.02; letter-spacing: -.04em; }
+.hero p { margin: 0; color: var(--muted); font-size: 19px; line-height: 1.65; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.card { border: 1px solid var(--line); background: var(--soft); border-radius: 16px; padding: 22px; display: grid; gap: 14px; }
+.card span { color: var(--muted); font-size: 14px; }
+.card strong { font-size: 17px; }
+footer { margin-top: auto; padding: 40px 0 28px; color: var(--muted); font-size: 13px; }
+button, a, input, textarea, select { font: inherit; }
+:focus-visible { outline: 3px solid #7db2f4; outline-offset: 3px; }
+@media (max-width: 767px) { .shell { width: min(100% - 24px, 560px); } .header { height: 74px; } .status { font-size: 0; } .status i { width: 10px; height: 10px; } .hero { padding: 64px 0 40px; } .hero p { font-size: 17px; } .grid { grid-template-columns: 1fr; } }

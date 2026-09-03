@@ -1,0 +1,1 @@
+{"name":"@pegasus/logging","version":"0.1.0","private":true,"type":"module","exports":"./src/index.ts","dependencies":{"@pegasus/config":"0.1.0"}}

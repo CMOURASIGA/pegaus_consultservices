@@ -1,0 +1,25 @@
+{
+  "name": "pegasus",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace @pegasus/web",
+    "build": "npm run build --workspace @pegasus/web",
+    "start": "npm run start --workspace @pegasus/web",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.3.4",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}
