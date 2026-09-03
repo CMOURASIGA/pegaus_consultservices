@@ -36,6 +36,11 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:3000/ > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/login | grep --quiet 'Entrar'
+          PRIVATE_STATUS=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/app)
+          test "$PRIVATE_STATUS" = "307"
+          PRIVATE_LOCATION=$(curl --silent --head http://127.0.0.1:3000/app | tr -d '\r' | awk 'tolower($1) == "location:" {print $2}')
+          echo "$PRIVATE_LOCATION" | grep --quiet '/login?next=%2Fapp'
           HEALTH_STATUS=$(curl --silent --output /tmp/health.json --write-out '%{http_code}' http://127.0.0.1:3000/api/health)
           test "$HEALTH_STATUS" = "200" -o "$HEALTH_STATUS" = "503"
           node -e "const fs=require('fs');const h=JSON.parse(fs.readFileSync('/tmp/health.json'));if(!['healthy','degraded','unavailable'].includes(h.status))process.exit(1)"

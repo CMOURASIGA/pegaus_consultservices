@@ -12,6 +12,7 @@
     "@pegasus/core": "0.1.0",
     "@pegasus/logging": "0.1.0",
     "@pegasus/shared": "0.1.0",
+    "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.115.0",
     "next": "16.3.4",
     "react": "19.2.8",
