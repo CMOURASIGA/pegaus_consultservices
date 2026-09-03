@@ -57,6 +57,11 @@ create index if not exists idx_document_chunks_embedding_hnsw
 -- They are backend-only: no PUBLIC/anon/authenticated EXECUTE.
 -- p_owner_id is mandatory defense-in-depth; the trusted backend must pass the
 -- authenticated owner explicitly after authorization.
+--
+-- pgvector is installed in schema `extensions`. The functions therefore include
+-- `extensions` in their fixed search_path so PostgreSQL can resolve pgvector's
+-- distance operators (<=>). This is safe here because `extensions` is a managed
+-- extension schema, while application objects remain fully schema-qualified.
 -- -----------------------------------------------------------------------------
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
@@ -81,7 +86,7 @@ returns table (
 language sql
 stable
 security invoker
-set search_path = ''
+set search_path = 'extensions'
 as $$
   select
     m.id,
@@ -123,7 +128,7 @@ returns table (
 language sql
 stable
 security invoker
-set search_path = ''
+set search_path = 'extensions'
 as $$
   select
     c.id as chunk_id,
