@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  output: process.env.VERCEL ? undefined : 'standalone',
   transpilePackages: ['@pegasus/config', '@pegasus/core', '@pegasus/logging', '@pegasus/shared'],
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd().replace('/apps/web', ''),
