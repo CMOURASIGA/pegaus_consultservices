@@ -1,25 +1,19 @@
-import Link from 'next/link'
+import { z } from 'zod'
 import { getVerifiedIdentity } from '../../lib/auth/server'
+import { SupabaseChatStore } from '../../lib/chat/store'
+import { ChatShell } from './chat-shell'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AppPage() {
-  const { profile, claims } = await getVerifiedIdentity()
-  return (
-      <main className="shell">
-        <header className="header">
-          <div className="brand"><span className="mark">P</span><div><strong>Pegasus</strong><small>Sessão protegida</small></div></div>
-          <form action="/auth/logout" method="post"><button className="link-button" type="submit">Sair</button></form>
-        </header>
-        <section className="dashboard">
-          <p className="eyebrow">ÁREA PRIVADA</p>
-          <h1>Olá, {profile.display_name || 'Christian'}.</h1>
-          <p className="muted">Sua identidade foi validada no servidor. Nível atual: <strong>{claims.aal === 'aal2' ? 'AAL2' : 'AAL1'}</strong>.</p>
-          <div className="grid auth-grid">
-            <Link className="card action-card" href="/security/mfa"><strong>Segurança e TOTP</strong><span>Configurar ou conferir o segundo fator.</span></Link>
-            <Link className="card action-card" href="/sessions"><strong>Sessões</strong><span>Consultar e revogar acessos.</span></Link>
-          </div>
-        </section>
-      </main>
-  )
+export default async function AppPage({ searchParams }: { searchParams: Promise<{ conversation?: string }> }) {
+  const { profile, claims, supabase } = await getVerifiedIdentity()
+  const store = new SupabaseChatStore(supabase)
+  const requested = (await searchParams).conversation
+  const conversationId = z.uuid().safeParse(requested).success ? requested : undefined
+  const [conversations, activeConversation] = await Promise.all([
+    store.listConversations(claims.sub!),
+    conversationId ? store.getConversation(claims.sub!, conversationId) : Promise.resolve(null),
+  ])
+  const messages = activeConversation ? await store.listMessages(claims.sub!, activeConversation.id) : []
+  return <ChatShell displayName={profile.display_name || 'Christian'} conversations={conversations} activeConversation={activeConversation} initialMessages={messages} />
 }

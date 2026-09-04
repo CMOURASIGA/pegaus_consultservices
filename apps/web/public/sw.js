@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pegasus-shell-v1'
+const CACHE_NAME = 'pegasus-public-shell-v2'
 const PUBLIC_SHELL = ['/', '/icon.svg']
 
 self.addEventListener('install', (event) => {
@@ -14,6 +14,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request
   const url = new URL(request.url)
-  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/') || request.headers.has('authorization')) return
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/app') || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/sessions') || url.pathname.startsWith('/security/') || request.headers.has('authorization')) return
   if (PUBLIC_SHELL.includes(url.pathname)) event.respondWith(fetch(request).catch(() => caches.match(request)))
 })

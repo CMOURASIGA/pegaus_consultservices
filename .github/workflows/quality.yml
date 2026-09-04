@@ -43,6 +43,8 @@ jobs:
           test "$PRIVATE_STATUS" = "307"
           PRIVATE_LOCATION=$(curl --silent --head http://127.0.0.1:3000/app | tr -d '\r' | awk 'tolower($1) == "location:" {print $2}')
           echo "$PRIVATE_LOCATION" | grep --quiet '/login?next=%2Fapp'
+          curl --fail --silent http://127.0.0.1:3000/manifest.webmanifest > /tmp/manifest.json
+          node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('/tmp/manifest.json'));if(m.start_url!=='/app'||m.display!=='standalone')process.exit(1)"
           HEALTH_STATUS=$(curl --silent --output /tmp/health.json --write-out '%{http_code}' http://127.0.0.1:3000/api/health)
           test "$HEALTH_STATUS" = "200" -o "$HEALTH_STATUS" = "503"
           node -e "const fs=require('fs');const h=JSON.parse(fs.readFileSync('/tmp/health.json'));if(!['healthy','degraded','unavailable'].includes(h.status))process.exit(1)"

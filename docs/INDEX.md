@@ -21,6 +21,7 @@
 - [Navigation](02-design/NAVIGATION.md)
 - [Authentication UX](02-design/AUTHENTICATION_UX.md)
 - [Chat Experience](02-design/CHAT_EXPERIENCE.md)
+- [Web/PWA and Chat Implementation](02-design/CHAT_IMPLEMENTATION.md)
 - [Control Center UX](02-design/CONTROL_CENTER_UX.md)
 - [Screen Spec](02-design/SCREEN_SPEC.md)
 - [Responsive](02-design/RESPONSIVE.md)
