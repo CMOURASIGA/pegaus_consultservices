@@ -11,7 +11,9 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "security:secrets": "node scripts/secret-scan.mjs",
+    "security:audit": "npm audit --omit=dev"
   },
   "devDependencies": {
     "@types/node": "26.4.1",

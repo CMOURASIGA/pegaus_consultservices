@@ -12,6 +12,11 @@ const serverSchema = z.object({
   APP_VERSION: z.string().default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
+  AI_ROUTER_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(30_000),
+  AI_ROUTER_RETRIES_PER_MODEL: z.coerce.number().int().min(0).max(3).default(0),
+  AI_ROUTER_FALLBACK_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  AI_ROUTER_FALLBACK_MAX_MODELS: z.coerce.number().int().min(1).max(5).default(1),
+  AI_ROUTER_FALLBACK_ALLOW_PAID: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 })
 
 export type PublicConfig = z.infer<typeof publicSchema>

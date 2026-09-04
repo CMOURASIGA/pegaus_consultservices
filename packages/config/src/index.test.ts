@@ -8,4 +8,11 @@ describe('server configuration', () => {
   it('requires Supabase public config in production', () => {
     expect(() => readServerConfig({ NODE_ENV: 'production' })).toThrow(/required in production/)
   })
+  it('uses cost-safe AI Router defaults without any provider credential', () => {
+    const config = readServerConfig({ NODE_ENV: 'test' })
+    expect(config.AI_ROUTER_TIMEOUT_MS).toBe(30000)
+    expect(config.AI_ROUTER_RETRIES_PER_MODEL).toBe(0)
+    expect(config.AI_ROUTER_FALLBACK_ENABLED).toBe(false)
+    expect(config.AI_ROUTER_FALLBACK_ALLOW_PAID).toBe(false)
+  })
 })

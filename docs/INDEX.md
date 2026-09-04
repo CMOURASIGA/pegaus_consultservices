@@ -10,6 +10,9 @@
 - [Infrastructure Costs](01-architecture/INFRASTRUCTURE_COSTS.md)
 - [Backup and Recovery](01-architecture/BACKUP_RECOVERY.md)
 - [Observability and Control Center](01-architecture/OBSERVABILITY_CONTROL_CENTER.md)
+- [Pegasus Core](01-architecture/PEGASUS_CORE.md)
+- [Core and AI Router Implementation](01-architecture/CORE_AI_ROUTER_IMPLEMENTATION.md)
+- [AI Router](04-ai/AI_ROUTER.md)
 
 ## 02 - Design / Frontend
 
@@ -25,18 +28,4 @@
 
 ## Status
 
-A documentação atual cobre as decisões de infraestrutura já debatidas e uma primeira especificação de frontend para garantir que arquitetura de tela, navegação, autenticação, chat, Control Center, responsividade e estados UX não sejam esquecidos.
-
-As specs de frontend ainda deverão ser refinadas após definição da identidade visual final e detalhamento funcional de cada módulo.
-
-Próximas áreas a documentar antes do desenvolvimento completo:
-
-- autenticação e identidade em nível técnico;
-- memória;
-- Google Drive e Knowledge Store;
-- arquitetura do OpenJarvis/Pegasus Core;
-- AI Router;
-- agentes e skills;
-- integrações;
-- segurança detalhada;
-- roadmap de implementação.
+Foundation, autenticação/sessões e os boundaries do Pegasus Core com AI Router possuem implementação e checkpoints próprios. A cerimônia real de TOTP permanece requisito de go-live. Web/PWA, chat, multimodalidade e voz constituem a próxima unidade do roadmap.

@@ -1,6 +1,11 @@
 import { readPublicConfig, readServerConfig } from '@pegasus/config'
 import type { ComponentStatus, HealthComponent, HealthReport } from '@pegasus/shared'
 
+export * from './contracts'
+export * from './ai-router'
+export * from './fake-provider'
+export * from './orchestrator'
+
 export async function checkSupabase(fetcher: typeof fetch = fetch): Promise<HealthComponent> {
   const started = Date.now()
   const config = readPublicConfig()

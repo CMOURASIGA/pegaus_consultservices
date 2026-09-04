@@ -23,6 +23,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run security:audit
+      - run: npm run security:secrets
       - name: Smoke test standalone server
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
