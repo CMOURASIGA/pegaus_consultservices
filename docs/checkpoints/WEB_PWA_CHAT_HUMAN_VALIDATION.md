@@ -11,7 +11,7 @@ Checkpoint 4A aguardando validação visual e funcional do proprietário. A unid
 - commit do checkpoint: `a73effec0c2855a7e71f5e86c6e01ae5a062a273`;
 - CI do checkpoint: verde;
 - provider: fake, determinístico, sem API paga;
-- Issue #5: aberta.
+- Issue #5: aberta.\n- preview HTTPS: projeto Vercel Hobby criado e aguardando deployment da branch `develop`.
 
 ## Opção imediata, execução local sem custo
 
