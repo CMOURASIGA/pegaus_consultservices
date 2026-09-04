@@ -31,5 +31,8 @@ describe('Web/PWA chat shell', () => {
     expect(shell).toContain('aria-live="polite"')
     expect(shell).toContain('<label className="sr-only" htmlFor="message">Mensagem para o Pegasus</label>')
     expect(shell).toContain("event.key === 'Enter' && !event.shiftKey")
+    expect(shell).toContain('type="file"')
+    expect(shell).toContain('aria-label="Anexar arquivos"')
+    expect(shell).toContain('aria-label="Voz disponível em uma próxima etapa"')
   })
 })

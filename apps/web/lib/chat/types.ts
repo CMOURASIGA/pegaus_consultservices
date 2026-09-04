@@ -11,13 +11,17 @@ export type ChatMessage = {
   content: string
   createdAt: string
   correlationId?: string
+  attachments?: ChatAttachment[]
 }
+
+export type ChatAttachment = { id: string; name: string; mediaType: string; size: number; classification: 'internal' }
 
 export type SendChatInput = {
   actorId: string
   content: string
   conversationId?: string
   signal?: AbortSignal
+  attachments?: ChatAttachment[]
 }
 
 export type SendChatResult = {
@@ -34,5 +38,5 @@ export interface ChatStore {
   getConversation(ownerId: string, conversationId: string): Promise<ChatConversation | null>
   listMessages(ownerId: string, conversationId: string): Promise<ChatMessage[]>
   createConversation(ownerId: string, title: string): Promise<ChatConversation>
-  createMessage(input: { ownerId: string; conversationId: string; role: 'user' | 'assistant'; content: string; correlationId: string; provider?: string; model?: string }): Promise<ChatMessage>
+  createMessage(input: { ownerId: string; conversationId: string; role: 'user' | 'assistant'; content: string; correlationId: string; provider?: string; model?: string; attachments?: ChatAttachment[] }): Promise<ChatMessage>
 }

@@ -8,7 +8,7 @@ import type { ChatStore, SendChatInput, SendChatResult } from './types'
 
 const fakeModel = {
   provider: 'pegasus-fake', model: 'local-safe-v1', enabled: true,
-  capabilities: ['balanced'] as const, modalities: ['text'] as const,
+  capabilities: ['balanced', 'multimodal'] as const, modalities: ['text', 'image'] as const,
   quality: 3, latency: 1, priority: 1, requiresCredential: false,
 }
 
@@ -40,8 +40,9 @@ export class ChatService {
       ? await this.store.getConversation(input.actorId, input.conversationId)
       : await this.store.createConversation(input.actorId, titleFrom(content))
     if (!conversation) throw new AppError('CONVERSATION_NOT_FOUND', 'Conversa não encontrada.', 404)
-    const userMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'user', content, correlationId })
-    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content }, requirements: { capability: 'balanced', quality: 'standard', latency: 'normal' }, execution: { allowPaidModels: false, signal: input.signal } }
+    const userMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'user', content, correlationId, attachments: input.attachments })
+    const hasImage = input.attachments?.some((item) => item.mediaType.startsWith('image/')) ?? false
+    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: false, signal: input.signal } }
     try {
       const result = await this.core.handle(request)
       const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: result.content, correlationId, provider: result.route.provider, model: result.route.model })

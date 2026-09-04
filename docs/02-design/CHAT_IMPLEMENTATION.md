@@ -49,10 +49,20 @@ The manifest starts at `/app` in standalone mode. The service worker caches only
 - focus remains visible and animation respects reduced-motion preference;
 - essential actions do not depend on hover or color alone.
 
-## Deferred to Sprint 4B and 4C
+## Multimodal input, Sprint 4B
 
-- file/image upload and private Storage references;
-- multimodal routing;
+The composer accepts up to four JPEG, PNG, WebP, PDF, TXT or Markdown files, with a 10 MB application limit per file. Validation is repeated server-side and binary formats are checked by signature before storage.
+
+- uploads use the authenticated request-scoped Supabase client;
+- objects are stored in the existing private `pegasus-private` bucket under `<owner_id>/chat/...`;
+- a `documents` record preserves owner, size, MIME type, original filename, internal classification and untrusted external provenance;
+- message metadata stores only safe attachment references;
+- the Core receives document IDs and media types, never raw file bytes;
+- the fake provider acknowledges the references and does not claim to inspect their contents;
+- paid-model execution remains disabled.
+
+## Deferred to Sprint 4C
+
 - microphone capture and Voice UX;
 - STT/TTS adapters;
 - full-duplex voice and interruption of synthesized audio.

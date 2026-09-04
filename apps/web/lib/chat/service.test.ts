@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AiRouterError } from '@pegasus/core'
 import { AppError } from '@pegasus/shared'
 import { ChatService, createChatCore } from './service'
-import type { ChatConversation, ChatMessage, ChatStore } from './types'
+import type { ChatAttachment, ChatConversation, ChatMessage, ChatStore } from './types'
 
 class MemoryChatStore implements ChatStore {
   conversations: Array<ChatConversation & { ownerId: string }> = []
@@ -14,9 +14,9 @@ class MemoryChatStore implements ChatStore {
     const item = { id: crypto.randomUUID(), ownerId, title, updatedAt: new Date().toISOString() }
     this.conversations.push(item); return item
   }
-  async createMessage(input: { ownerId: string; conversationId: string; role: 'user' | 'assistant'; content: string; correlationId: string; provider?: string; model?: string }) {
+  async createMessage(input: { ownerId: string; conversationId: string; role: 'user' | 'assistant'; content: string; correlationId: string; provider?: string; model?: string; attachments?: ChatAttachment[] }) {
     if (!await this.getConversation(input.ownerId, input.conversationId)) throw new AppError('CONVERSATION_NOT_FOUND', 'Conversa não encontrada.', 404)
-    const item = { id: crypto.randomUUID(), ownerId: input.ownerId, conversationId: input.conversationId, role: input.role, content: input.content, correlationId: input.correlationId, provider: input.provider, model: input.model, createdAt: new Date().toISOString() }
+    const item = { id: crypto.randomUUID(), ownerId: input.ownerId, conversationId: input.conversationId, role: input.role, content: input.content, correlationId: input.correlationId, provider: input.provider, model: input.model, attachments: input.attachments, createdAt: new Date().toISOString() }
     this.messages.push(item); return item
   }
 }
@@ -65,5 +65,22 @@ describe('ChatService', () => {
     await expect(new ChatService(store).send({ actorId: 'owner-a', content: '   ' })).rejects.toMatchObject({ code: 'MESSAGE_EMPTY' })
     await expect(new ChatService(store).send({ actorId: 'owner-a', content: 'a'.repeat(12_001) })).rejects.toMatchObject({ code: 'MESSAGE_TOO_LARGE' })
     expect(store.conversations).toHaveLength(0)
+  })
+
+  it('routes attachment references as multimodal without forwarding file content', async () => {
+    const store = new MemoryChatStore()
+    const handle = vi.fn().mockResolvedValue({
+      content: 'Anexo recebido em modo seguro.',
+      route: { provider: 'pegasus-fake', model: 'local-safe-v1' },
+    })
+    const attachment: ChatAttachment = { id: 'document-1', name: 'foto.png', mediaType: 'image/png', size: 8, classification: 'internal' }
+    await new ChatService(store, { handle }).send({ actorId: 'owner-a', content: 'Considere este anexo', attachments: [attachment] })
+    expect(handle).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({ attachments: [{ id: 'document-1', mediaType: 'image/png' }] }),
+      requirements: expect.objectContaining({ capability: 'multimodal', requiredModalities: ['text', 'image'] }),
+      execution: expect.objectContaining({ allowPaidModels: false }),
+    }))
+    expect(JSON.stringify(handle.mock.calls)).not.toContain('foto.png')
+    expect(store.messages[0]?.attachments).toEqual([attachment])
   })
 })

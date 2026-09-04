@@ -29,4 +29,4 @@
 
 ## Status
 
-Foundation, autenticação/sessões e os boundaries do Pegasus Core com AI Router possuem implementação e checkpoints próprios. A cerimônia real de TOTP permanece requisito de go-live. Web/PWA, chat, multimodalidade e voz constituem a próxima unidade do roadmap.
+Foundation, autenticação/sessões e os boundaries do Pegasus Core com AI Router possuem implementação e checkpoints próprios. A cerimônia real de TOTP permanece requisito de go-live. Web/PWA e chat foram validados pelo proprietário, e a entrada multimodal possui checkpoint próprio. Voz permanece como próxima subunidade.
