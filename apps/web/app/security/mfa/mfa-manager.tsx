@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
+import { ProductShell } from '../../product-shell'
 import { createClient } from '../../../lib/supabase/browser'
 
 type TotpSetup = { factorId: string; qrCode: string; secret: string; challengeId?: string }
@@ -52,16 +52,18 @@ export function MfaManager({ initialAal }: { initialAal: 'aal1' | 'aal2' }) {
     setAal(level.data?.currentLevel === 'aal2' ? 'aal2' : 'aal1')
     setStatus('verified')
     setCode('')
-    setMessage('Segundo fator validado. A sessão está em AAL2.')
+    setMessage('Verificação adicional concluída nesta sessão.')
     await fetch('/auth/mfa/event', { method: 'POST' })
   }
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card wide-card">
-        <div><p className="eyebrow">SEGURANÇA</p><h1>Authenticator TOTP</h1><p className="muted">Nível atual da sessão: <strong>{aal.toUpperCase()}</strong></p></div>
+    <ProductShell area="security" eyebrow="CONTA" title="Segurança">
+      <section className="settings-page">
+        <div className="settings-heading"><p className="eyebrow">VERIFICAÇÃO EM DUAS ETAPAS</p><h1>Proteção adicional para sua conta</h1><p className="muted">Use um aplicativo autenticador para confirmar acessos e operações sensíveis.</p></div>
+        <section className="settings-card">
+        <div className="security-status"><div><strong>Aplicativo autenticador</strong><p>{aal === 'aal2' ? 'Sua identidade foi confirmada nesta sessão.' : 'Adicione ou confirme seu autenticador para aumentar a proteção.'}</p></div><span className={aal === 'aal2' ? 'status-pill success' : 'status-pill'}>{aal === 'aal2' ? 'Confirmado' : 'Confirmação pendente'}</span></div>
         {status === 'loading' && <p>Carregando fatores...</p>}
-        {status === 'unenrolled' && !setup && <><p>Nenhum autenticador foi cadastrado. A sessão continua em AAL1 até você concluir o fluxo.</p><button className="primary-button" onClick={enroll}>Cadastrar autenticador</button></>}
+        {status === 'unenrolled' && !setup && <><p>Nenhum aplicativo autenticador foi vinculado à sua conta.</p><button className="primary-button" onClick={enroll}>Configurar autenticador</button></>}
         {setup && <div className="totp-setup">
           <p>Leia o QR Code no Google Authenticator, Microsoft Authenticator ou aplicativo compatível.</p>
           {/* Supabase returns a self-contained SVG data URL, not remote user content. */}
@@ -69,10 +71,11 @@ export function MfaManager({ initialAal }: { initialAal: 'aal1' | 'aal2' }) {
           <details><summary>Não consegue ler o QR Code?</summary><code className="secret-code">{setup.secret}</code><p className="fine-print">Este segredo aparece apenas durante o cadastro. Não o compartilhe.</p></details>
         </div>}
         {(status === 'enrolled' || setup) && <div className="auth-form"><label>Código de 6 dígitos<input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" /></label><button className="primary-button" onClick={verify}>Validar código</button></div>}
-        {status === 'verified' && <p>O fator foi comprovado nesta sessão.</p>}
+        {status === 'verified' && <p>A verificação adicional está ativa nesta sessão.</p>}
         {message && <p className={status === 'verified' ? 'form-success' : 'form-error'} role="status">{message}</p>}
-        <Link href="/app">Voltar à área privada</Link>
+        <details className="technical-details"><summary>Detalhes técnicos</summary><p>Nível interno da sessão: {aal.toUpperCase()}. O método utilizado é TOTP.</p></details>
+        </section>
       </section>
-    </main>
+    </ProductShell>
   )
 }

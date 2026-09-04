@@ -61,30 +61,33 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   return (
     <main className="chat-app">
       <aside className={`chat-sidebar ${sidebarOpen ? 'is-open' : ''}`} aria-label="Conversas recentes">
-        <div className="chat-brand"><span className="mark" aria-hidden="true">P</span><div><strong>Pegasus</strong><small>Ambiente privado</small></div></div>
-        <button className="new-chat-button" type="button" onClick={newConversation}>+ Nova conversa</button>
+        <div className="chat-brand"><span className="brand-symbol" aria-hidden="true">P</span><div><strong>Pegasus</strong><small>Consult Services</small></div></div>
+        <button className="new-chat-button" type="button" onClick={newConversation}><span aria-hidden="true">＋</span>Nova conversa</button>
         <nav className="conversation-list" aria-label="Histórico recente">
+          <p className="navigation-label">CONVERSAS RECENTES</p>
           {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
         </nav>
-        <div className="sidebar-footer"><a href="/security/mfa">Segurança</a><a href="/sessions">Sessões</a></div>
+        <nav className="sidebar-footer" aria-label="Conta"><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
       </aside>
       {sidebarOpen && <button className="sidebar-backdrop" type="button" aria-label="Fechar conversas" onClick={() => setSidebarOpen(false)} />}
 
       <section className="chat-main">
         <header className="chat-header">
           <button className="menu-button" type="button" aria-label="Abrir conversas" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}>☰</button>
-          <div><strong>{conversation?.title || 'Nova conversa'}</strong><span className="mode-badge">Modo local seguro</span></div>
+          <div><strong>{conversation?.title || 'Nova conversa'}</strong><span className="mode-badge"><i />Ambiente de validação</span></div>
           <form action="/auth/logout" method="post"><button className="link-button compact" type="submit">Sair</button></form>
         </header>
 
         <div className="message-region" aria-live="polite" aria-busy={status === 'processing'}>
-          {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName}.</h1><p>O que vamos analisar ou organizar agora?</p><small>Nesta fase, as respostas usam um provider local de teste e não geram custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span><p>{message.content}</p></article>)}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está processando...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}<div ref={endRef} /></div>}
+          {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName.toLocaleUpperCase('pt-BR')}.</h1><p>Como posso ajudar agora?</p><small>Este ambiente usa respostas locais de teste e não gera custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span><p>{message.content}</p></article>)}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está preparando a resposta...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}<div ref={endRef} /></div>}
         </div>
 
         <div className="composer-wrap">
           <form className="chat-composer" onSubmit={submit}>
+            <button className="future-action" type="button" disabled aria-label="Anexos estarão disponíveis em uma próxima etapa" title="Anexos, disponível em uma próxima etapa">＋</button>
             <label className="sr-only" htmlFor="message">Mensagem para o Pegasus</label>
             <textarea id="message" value={content} onChange={(event) => setContent(event.target.value)} onKeyDown={keyDown} placeholder="Converse com o Pegasus" rows={1} maxLength={12000} disabled={status === 'processing'} />
+            <button className="future-action" type="button" disabled aria-label="Voz estará disponível em uma próxima etapa" title="Voz, disponível em uma próxima etapa">●</button>
             {status === 'processing' ? <button className="cancel-button" type="button" onClick={cancel}>Cancelar</button> : <button className="send-button" type="submit" disabled={!content.trim()} aria-label="Enviar mensagem">Enviar</button>}
           </form>
           <p className="composer-hint">Enter envia, Shift + Enter cria uma nova linha.</p>
