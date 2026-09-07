@@ -46,4 +46,4 @@ Essa implementação valida UX, estados e boundaries. STT/TTS de produção, str
 
 Após autorização explícita do proprietário, o Preview pode usar `OpenAiSpeechToText` somente no backend. O áudio concluído é enviado por uma rota autenticada, limitado a 10 MB e 60 segundos, transcrito com `gpt-transcribe` e descartado após a requisição. A chave `OPENAI_API_KEY` permanece server-side.
 
-A transcrição é mostrada no composer para revisão e correção antes do envio. Ela não autoriza ações e não ativa um modelo de linguagem pago. A resposta do Chat continua usando o provider fake até nova decisão explícita.
+A transcrição é inserida automaticamente como mensagem do usuário no Chat após o encerramento explícito da gravação. O balão `Você` preserva o texto reconhecido para conferência no histórico. Ela não autoriza ações e não ativa um modelo de linguagem pago. A resposta do Chat continua usando o provider fake até nova decisão explícita.

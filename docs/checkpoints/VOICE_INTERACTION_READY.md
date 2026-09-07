@@ -51,7 +51,7 @@ Nenhum provider pago foi ativado. O fake STT confirma o fluxo técnico e não af
 
 ### Extensão autorizada para validação humana
 
-O proprietário cadastrou uma chave exclusivamente no ambiente Preview e autorizou a validação da compreensão do áudio. A implementação passou a oferecer transcrição real server-side com `gpt-transcribe`, limitada a 60 segundos por turno e sem retry automático. O texto reconhecido é exibido para revisão antes do envio. O AI Router continua usando `pegasus-fake`, portanto somente a transcrição pode gerar consumo.
+O proprietário cadastrou uma chave exclusivamente no ambiente Preview e autorizou a validação da compreensão do áudio. A implementação passou a oferecer transcrição real server-side com `gpt-transcribe`, limitada a 60 segundos por turno e sem retry automático. Após o usuário encerrar a gravação, o texto reconhecido é enviado automaticamente e permanece visível no balão `Você`. O AI Router continua usando `pegasus-fake`, portanto somente a transcrição pode gerar consumo.
 
 ## Validações automatizadas
 

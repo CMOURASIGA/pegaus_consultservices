@@ -28,7 +28,6 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const [files, setFiles] = useState<File[]>([])
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
   const [voiceMessage, setVoiceMessage] = useState('')
-  const [voiceDraft, setVoiceDraft] = useState(false)
   const controller = useRef<AbortController | null>(null)
   const voiceController = useRef<AbortController | null>(null)
   const voiceCapture = useRef<BrowserVoiceCapture | null>(null)
@@ -45,7 +44,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   function newConversation() {
     controller.current?.abort()
     cancelVoice(false)
-    setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setStatus('ready'); setSidebarOpen(false); setVoiceDraft(false)
+    setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setStatus('ready'); setSidebarOpen(false)
     window.history.replaceState({}, '', '/app')
   }
 
@@ -75,7 +74,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     } finally { controller.current = null }
   }
 
-  function submit(event: FormEvent) { event.preventDefault(); const speakResponse = voiceDraft; setVoiceDraft(false); setVoiceMessage(''); void sendMessage(content, speakResponse) }
+  function submit(event: FormEvent) { event.preventDefault(); void sendMessage(content) }
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }
   function cancel() { controller.current?.abort() }
 
@@ -117,9 +116,8 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       voiceCapture.current = null
       const transcript = await new ServerSpeechToText().transcribe(audio, abortController.signal)
       setContent(transcript.text)
-      setVoiceDraft(true)
-      setVoiceState('idle')
-      setVoiceMessage(`Entendi: “${transcript.text}” Revise o texto e toque em Enviar.`)
+      setVoiceMessage(`Entendi: “${transcript.text}” Enviando ao Pegasus...`)
+      await sendMessage(transcript.text, true)
     } catch (caught) {
       if (abortController.signal.aborted) { setVoiceState('cancelled'); setVoiceMessage('Interação por voz cancelada.') }
       else { const safe = mapMicrophoneError(caught); setVoiceState('error'); setVoiceMessage(safe.message) }
@@ -133,7 +131,6 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     voiceCapture.current = null
     setVoiceState(showMessage ? 'cancelled' : 'idle')
     setVoiceMessage(showMessage ? 'Interação por voz cancelada.' : '')
-    setVoiceDraft(false)
   }
 
   function toggleVoice() {
