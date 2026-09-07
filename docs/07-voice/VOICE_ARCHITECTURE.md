@@ -27,3 +27,17 @@ Ativação por palavra como "Pegasus" pode ser considerada futuramente, especial
 
 ## Segurança
 Comandos por voz não eliminam autenticação, permissões ou step-up. Ações críticas continuam sujeitas ao Decision Guard e confirmação autenticada apropriada.
+
+## Implementação inicial da Sprint 4C
+
+A primeira implementação usa contratos independentes para captura, STT e TTS. No ambiente de validação:
+
+- `BrowserVoiceCapture` solicita permissão somente após ação explícita e captura com `MediaRecorder`;
+- o áudio permanece em memória, não é persistido e é descartado ao final do turno;
+- `FakeSpeechToText` produz uma transcrição determinística, sem credencial ou serviço externo;
+- `BrowserTextToSpeech` usa a síntese disponível no navegador e mantém fallback visual quando indisponível;
+- interrupção cancela a fala sintetizada antes de iniciar uma nova captura;
+- o texto resultante percorre o mesmo fluxo autenticado do Chat e do Pegasus Core;
+- nenhuma resposta por voz autoriza ação consequencial.
+
+Essa implementação valida UX, estados e boundaries. STT/TTS de produção, streaming full-duplex real, VAD e vozes de fornecedor permanecem dependentes de decisão explícita de provider, privacidade e custo.

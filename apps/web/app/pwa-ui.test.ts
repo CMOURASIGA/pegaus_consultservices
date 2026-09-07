@@ -21,6 +21,7 @@ describe('Web/PWA chat shell', () => {
   it('includes critical responsive, keyboard and safe-area behavior', () => {
     const styles = readFileSync('apps/web/app/styles.css', 'utf8')
     const shell = readFileSync('apps/web/app/app/chat-shell.tsx', 'utf8')
+    const nextConfig = readFileSync('apps/web/next.config.ts', 'utf8')
     expect(styles).toContain('@media (max-width: 767px)')
     expect(styles).toContain('100dvh')
     expect(styles).toContain('env(safe-area-inset-bottom)')
@@ -33,6 +34,9 @@ describe('Web/PWA chat shell', () => {
     expect(shell).toContain("event.key === 'Enter' && !event.shiftKey")
     expect(shell).toContain('type="file"')
     expect(shell).toContain('aria-label="Anexar arquivos"')
-    expect(shell).toContain('aria-label="Voz disponível em uma próxima etapa"')
+    expect(shell).toContain("voiceState === 'listening' ? 'Concluir gravação de voz'")
+    expect(shell).toContain("voiceState === 'speaking' ? 'Interromper resposta e falar'")
+    expect(shell).toContain("voiceState === 'requesting_permission'")
+    expect(nextConfig).toContain('camera=(), microphone=(self), geolocation=()')
   })
 })

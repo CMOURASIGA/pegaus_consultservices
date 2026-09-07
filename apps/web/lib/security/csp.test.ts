@@ -9,4 +9,10 @@ describe('content security policy', () => {
     expect(policy).not.toContain("script-src 'self' 'unsafe-inline'")
     expect(policy).toContain("connect-src 'self' https://*.supabase.co wss://*.supabase.co")
   })
+
+  it('keeps media local to the application and blob URLs', () => {
+    const policy = createContentSecurityPolicy('request-nonce')
+    expect(policy).toContain("media-src 'self' blob:")
+    expect(policy).not.toContain('media-src *')
+  })
 })

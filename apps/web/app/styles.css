@@ -108,6 +108,11 @@ button, a, input, textarea, select { font: inherit; }
 .cancel-button { background: #fff; color: #b42318; border: 1px solid #b42318; }
 .future-action { width: 42px; height: 42px; flex: 0 0 42px; border: 0; border-radius: 12px; color: #98a2b3; background: transparent; font-size: 20px; }
 .future-action:disabled { cursor: not-allowed; opacity: .6; }
+.voice-action { cursor: pointer; transition: color .18s ease, background .18s ease, transform .18s ease; }
+.voice-action:hover:not(:disabled) { color: var(--blue); background: var(--blue-soft); }
+.voice-action.is-listening { color: #fff; background: #b42318; animation: voice-pulse 1.25s ease-in-out infinite; }
+.voice-action.is-speaking { color: var(--blue); background: var(--blue-soft); }
+@keyframes voice-pulse { 50% { transform: scale(.92); box-shadow: 0 0 0 6px rgba(180,35,24,.1); } }
 .attachment-action { display: grid; place-items: center; cursor: pointer; }
 .attachment-action:hover { background: var(--blue-soft); color: var(--blue); }
 .attachment-action input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
@@ -115,6 +120,11 @@ button, a, input, textarea, select { font: inherit; }
 .selected-files > span, .message-attachments > span { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 7px 10px; border-radius: 9px; background: var(--blue-soft); color: var(--blue-dark); font-size: 12px; overflow-wrap: anywhere; }
 .selected-files button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 17px; padding: 0; }
 .message-attachments { display: flex; flex-wrap: wrap; gap: 6px; }
+.voice-feedback { width: min(980px,100%); margin: 8px auto 0; min-height: 36px; padding: 8px 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 11px; background: #fff; color: var(--muted); font-size: 12px; }
+.voice-feedback.listening { border-color: #e6aaa4; color: #8f1d14; background: #fff7f6; }
+.voice-feedback.speaking { border-color: #a9c9ee; color: var(--blue-dark); background: var(--blue-soft); }
+.voice-feedback.error { border-color: #e6aaa4; color: #8f1d14; }
+.voice-feedback button { border: 0; background: transparent; color: inherit; font-weight: 700; cursor: pointer; }
 .composer-hint { width: min(980px, 100%); margin: 7px auto 0; text-align: center; color: var(--muted); font-size: 11px; }
 .product-shell { min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: 260px minmax(0, 1fr); background: var(--canvas); }
 .product-sidebar { min-height: 100vh; min-height: 100dvh; padding: 24px 18px; background: #fff; border-right: 1px solid var(--line); display: grid; grid-template-rows: auto 1fr auto; gap: 34px; z-index: 20; }
@@ -168,6 +178,7 @@ button, a, input, textarea, select { font: inherit; }
   .send-button, .cancel-button { flex: 0 0 auto; padding-inline: 12px; }
   .composer-hint { display: none; }
   .future-action { width: 38px; height: 42px; flex-basis: 38px; }
+  .voice-feedback { width: 100%; }
   .product-shell { display: block; }
   .product-sidebar { position: fixed; inset: 0 auto 0 0; width: min(86vw,310px); transform: translateX(-105%); transition: transform .2s ease; box-shadow: 14px 0 40px rgba(20,32,51,.16); }
   .product-sidebar.is-open { transform: translateX(0); }

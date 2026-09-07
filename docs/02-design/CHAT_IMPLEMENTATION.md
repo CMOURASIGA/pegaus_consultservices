@@ -61,8 +61,16 @@ The composer accepts up to four JPEG, PNG, WebP, PDF, TXT or Markdown files, wit
 - the fake provider acknowledges the references and does not claim to inspect their contents;
 - paid-model execution remains disabled.
 
-## Deferred to Sprint 4C
+## Voice interaction, Sprint 4C
 
-- microphone capture and Voice UX;
-- STT/TTS adapters;
-- full-duplex voice and interruption of synthesized audio.
+The voice control requests microphone permission only after an explicit user gesture. It exposes permission, listening, processing, speaking, cancelled and error states without creating a parallel conversation.
+
+Captured audio remains in browser memory and is discarded after the credential-free fake STT adapter returns a transparent validation transcript. The transcript uses the same authenticated text path. When browser speech synthesis is available, the fake assistant response is read aloud and may be interrupted by starting another voice turn.
+
+## Deferred beyond Sprint 4C
+
+- production STT/TTS providers;
+- streaming speech understanding and synthesized audio;
+- automatic voice activity detection;
+- wake word and always-on microphone;
+- voice biometrics and meeting capture.

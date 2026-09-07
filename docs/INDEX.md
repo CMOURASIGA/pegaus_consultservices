@@ -22,6 +22,7 @@
 - [Authentication UX](02-design/AUTHENTICATION_UX.md)
 - [Chat Experience](02-design/CHAT_EXPERIENCE.md)
 - [Web/PWA and Chat Implementation](02-design/CHAT_IMPLEMENTATION.md)
+- [Voice Architecture](07-voice/VOICE_ARCHITECTURE.md)
 - [Control Center UX](02-design/CONTROL_CENTER_UX.md)
 - [Screen Spec](02-design/SCREEN_SPEC.md)
 - [Responsive](02-design/RESPONSIVE.md)
@@ -29,4 +30,4 @@
 
 ## Status
 
-Foundation, autenticação/sessões e os boundaries do Pegasus Core com AI Router possuem implementação e checkpoints próprios. A cerimônia real de TOTP permanece requisito de go-live. Web/PWA e chat foram validados pelo proprietário, e a entrada multimodal possui checkpoint próprio. Voz permanece como próxima subunidade.
+Foundation, autenticação/sessões e os boundaries do Pegasus Core com AI Router possuem implementação e checkpoints próprios. A cerimônia real de TOTP permanece requisito de go-live. Web/PWA, Chat e entrada multimodal foram validados progressivamente. A interação de voz possui implementação inicial com providers locais e checkpoint próprio.
