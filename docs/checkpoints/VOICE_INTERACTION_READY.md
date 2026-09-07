@@ -53,6 +53,8 @@ Nenhum provider pago foi ativado. O fake STT confirma o fluxo técnico e não af
 
 O proprietário cadastrou uma chave exclusivamente no ambiente Preview e autorizou a validação da compreensão do áudio. A implementação passou a oferecer transcrição real server-side com `gpt-transcribe`, limitada a 60 segundos por turno e sem retry automático. Após o usuário encerrar a gravação, o texto reconhecido é enviado automaticamente e permanece visível no balão `Você`. O AI Router continua usando `pegasus-fake`, portanto somente a transcrição pode gerar consumo.
 
+Após nova validação humana apontar a dependência do segundo toque, a Issue #5 foi reaberta e o VAD local foi incorporado: depois de detectar fala seguida de aproximadamente 1,5 segundo de silêncio, a captura termina e segue automaticamente para transcrição e envio. O segundo toque permanece como alternativa manual.
+
 ## Validações automatizadas
 
 - contracts independentes de captura, STT e TTS;

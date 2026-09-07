@@ -4,6 +4,26 @@ import type { CapturedAudio, SpeechToTextAdapter, TextToSpeechAdapter, VoiceCapt
 import { VoiceError } from './types'
 
 const FALLBACK_MEDIA_TYPE = 'audio/webm'
+const SILENCE_THRESHOLD = 0.018
+const SILENCE_DURATION_MS = 1_500
+const MAX_CAPTURE_DURATION_MS = 60_000
+
+export class VoiceActivityDetector {
+  private speechDetected = false
+  private lastSpeechAt = 0
+
+  constructor(private readonly startedAt: number) {}
+
+  sample(level: number, now: number) {
+    if (now - this.startedAt >= MAX_CAPTURE_DURATION_MS) return true
+    if (level >= SILENCE_THRESHOLD) {
+      this.speechDetected = true
+      this.lastSpeechAt = now
+      return false
+    }
+    return this.speechDetected && now - this.lastSpeechAt >= SILENCE_DURATION_MS
+  }
+}
 
 export function mapMicrophoneError(error: unknown) {
   if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
@@ -21,8 +41,10 @@ export class BrowserVoiceCapture implements VoiceCaptureAdapter {
   private stream: MediaStream | null = null
   private chunks: Blob[] = []
   private startedAt = 0
+  private audioContext: AudioContext | null = null
+  private animationFrame: number | null = null
 
-  async start() {
+  async start(onSilence?: () => void) {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       throw new VoiceError('unsupported', 'Este navegador não oferece captura de voz compatível.')
     }
@@ -34,6 +56,7 @@ export class BrowserVoiceCapture implements VoiceCaptureAdapter {
       this.recorder.addEventListener('dataavailable', (event) => { if (event.data.size) this.chunks.push(event.data) })
       this.recorder.start()
       this.startedAt = performance.now()
+      if (onSilence) this.monitorSilence(onSilence)
     } catch (error) {
       this.release()
       throw mapMicrophoneError(error)
@@ -64,9 +87,37 @@ export class BrowserVoiceCapture implements VoiceCaptureAdapter {
   }
 
   private release() {
+    if (this.animationFrame !== null) cancelAnimationFrame(this.animationFrame)
+    this.animationFrame = null
+    void this.audioContext?.close()
+    this.audioContext = null
     this.stream?.getTracks().forEach((track) => track.stop())
     this.stream = null
     this.recorder = null
+  }
+
+  private monitorSilence(onSilence: () => void) {
+    if (!this.stream || typeof AudioContext === 'undefined') return
+    this.audioContext = new AudioContext()
+    const analyser = this.audioContext.createAnalyser()
+    analyser.fftSize = 1024
+    this.audioContext.createMediaStreamSource(this.stream).connect(analyser)
+    const samples = new Float32Array(analyser.fftSize)
+    const detector = new VoiceActivityDetector(this.startedAt)
+    const monitor = () => {
+      if (!this.recorder || this.recorder.state === 'inactive') return
+      analyser.getFloatTimeDomainData(samples)
+      let energy = 0
+      for (const sample of samples) energy += sample * sample
+      const level = Math.sqrt(energy / samples.length)
+      if (detector.sample(level, performance.now())) {
+        this.animationFrame = null
+        onSilence()
+        return
+      }
+      this.animationFrame = requestAnimationFrame(monitor)
+    }
+    this.animationFrame = requestAnimationFrame(monitor)
   }
 }
 

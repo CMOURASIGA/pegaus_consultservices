@@ -31,6 +31,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const controller = useRef<AbortController | null>(null)
   const voiceController = useRef<AbortController | null>(null)
   const voiceCapture = useRef<BrowserVoiceCapture | null>(null)
+  const finishingVoice = useRef(false)
   const voiceOutput = useRef<BrowserTextToSpeech | null>(null)
   const endRef = useRef<HTMLDivElement | null>(null)
 
@@ -96,8 +97,8 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     const capture = new BrowserVoiceCapture()
     voiceCapture.current = capture
     try {
-      await capture.start()
-      setVoiceState('listening'); setVoiceMessage('Estou ouvindo. Toque novamente para concluir.')
+      await capture.start(() => { void finishVoice() })
+      setVoiceState('listening'); setVoiceMessage('Estou ouvindo. Ao terminar de falar, aguarde um instante ou toque para concluir.')
     } catch (caught) {
       const safe = mapMicrophoneError(caught)
       setVoiceState('error'); setVoiceMessage(safe.message)
@@ -107,7 +108,8 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
 
   async function finishVoice() {
     const capture = voiceCapture.current
-    if (!capture) return
+    if (!capture || finishingVoice.current) return
+    finishingVoice.current = true
     setVoiceState('processing'); setVoiceMessage('Preparando sua mensagem de voz...')
     const abortController = new AbortController()
     voiceController.current = abortController
@@ -121,7 +123,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     } catch (caught) {
       if (abortController.signal.aborted) { setVoiceState('cancelled'); setVoiceMessage('Interação por voz cancelada.') }
       else { const safe = mapMicrophoneError(caught); setVoiceState('error'); setVoiceMessage(safe.message) }
-    } finally { voiceController.current = null }
+    } finally { voiceController.current = null; finishingVoice.current = false }
   }
 
   function cancelVoice(showMessage = true) {
@@ -129,6 +131,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     voiceCapture.current?.cancel()
     voiceOutput.current?.cancel()
     voiceCapture.current = null
+    finishingVoice.current = false
     setVoiceState(showMessage ? 'cancelled' : 'idle')
     setVoiceMessage(showMessage ? 'Interação por voz cancelada.' : '')
   }

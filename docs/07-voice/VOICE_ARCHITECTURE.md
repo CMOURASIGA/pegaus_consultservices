@@ -47,3 +47,5 @@ Essa implementação valida UX, estados e boundaries. STT/TTS de produção, str
 Após autorização explícita do proprietário, o Preview pode usar `OpenAiSpeechToText` somente no backend. O áudio concluído é enviado por uma rota autenticada, limitado a 10 MB e 60 segundos, transcrito com `gpt-transcribe` e descartado após a requisição. A chave `OPENAI_API_KEY` permanece server-side.
 
 A transcrição é inserida automaticamente como mensagem do usuário no Chat após o encerramento explícito da gravação. O balão `Você` preserva o texto reconhecido para conferência no histórico. Ela não autoriza ações e não ativa um modelo de linguagem pago. A resposta do Chat continua usando o provider fake até nova decisão explícita.
+
+O encerramento pode ocorrer pelo segundo toque ou automaticamente após aproximadamente 1,5 segundo de silêncio posterior à detecção de fala. O VAD local usa apenas o nível do sinal no navegador, não envia áudio adicional e mantém limite absoluto de 60 segundos. O controle manual permanece disponível para ruído ambiente ou falha de detecção.

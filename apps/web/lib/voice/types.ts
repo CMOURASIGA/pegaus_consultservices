@@ -17,7 +17,7 @@ export type CapturedAudio = {
 
 export interface VoiceCaptureAdapter {
   readonly id: string
-  start(): Promise<void>
+  start(onSilence?: () => void): Promise<void>
   stop(): Promise<CapturedAudio>
   cancel(): void
 }
