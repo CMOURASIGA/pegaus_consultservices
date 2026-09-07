@@ -41,3 +41,9 @@ A primeira implementação usa contratos independentes para captura, STT e TTS. 
 - nenhuma resposta por voz autoriza ação consequencial.
 
 Essa implementação valida UX, estados e boundaries. STT/TTS de produção, streaming full-duplex real, VAD e vozes de fornecedor permanecem dependentes de decisão explícita de provider, privacidade e custo.
+
+## Validação controlada de transcrição real
+
+Após autorização explícita do proprietário, o Preview pode usar `OpenAiSpeechToText` somente no backend. O áudio concluído é enviado por uma rota autenticada, limitado a 10 MB e 60 segundos, transcrito com `gpt-transcribe` e descartado após a requisição. A chave `OPENAI_API_KEY` permanece server-side.
+
+A transcrição é mostrada no composer para revisão e correção antes do envio. Ela não autoriza ações e não ativa um modelo de linguagem pago. A resposta do Chat continua usando o provider fake até nova decisão explícita.

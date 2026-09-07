@@ -1,6 +1,6 @@
 export type VoiceState = 'idle' | 'requesting_permission' | 'listening' | 'processing' | 'speaking' | 'cancelled' | 'error'
 
-export type VoiceErrorCode = 'permission_denied' | 'microphone_unavailable' | 'capture_failed' | 'empty_audio' | 'unsupported'
+export type VoiceErrorCode = 'permission_denied' | 'microphone_unavailable' | 'capture_failed' | 'empty_audio' | 'unsupported' | 'audio_too_large' | 'transcription_unavailable' | 'transcription_failed'
 
 export class VoiceError extends Error {
   constructor(readonly code: VoiceErrorCode, message: string) {

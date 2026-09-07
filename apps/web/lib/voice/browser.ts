@@ -81,6 +81,28 @@ export class FakeSpeechToText implements SpeechToTextAdapter {
   }
 }
 
+export class ServerSpeechToText implements SpeechToTextAdapter {
+  readonly id = 'pegasus-server-stt'
+  readonly requiresCredential = true
+
+  async transcribe(audio: CapturedAudio, signal?: AbortSignal) {
+    if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
+    const body = new FormData()
+    const extension = audio.mediaType.includes('mp4') ? 'm4a' : 'webm'
+    body.set('audio', new File([audio.blob], `voice.${extension}`, { type: audio.mediaType }))
+    body.set('durationMs', String(Math.round(audio.durationMs)))
+    const response = await fetch('/api/voice/transcribe', { method: 'POST', body, signal })
+    const payload = await response.json().catch(() => null) as { text?: string; error?: { code?: string; message?: string } } | null
+    if (!response.ok || !payload?.text) {
+      throw new VoiceError(
+        response.status === 413 ? 'audio_too_large' : response.status === 503 ? 'transcription_unavailable' : 'transcription_failed',
+        payload?.error?.message ?? 'Não foi possível transcrever o áudio.',
+      )
+    }
+    return { text: payload.text }
+  }
+}
+
 export class BrowserTextToSpeech implements TextToSpeechAdapter {
   readonly id = 'browser-speech-synthesis'
   readonly requiresCredential = false

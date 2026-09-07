@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react'
 import type { ChatConversation, ChatMessage, SendChatResult } from '../../lib/chat/types'
 import { ALLOWED_ATTACHMENT_TYPES, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from '../../lib/chat/attachment-limits'
-import { BrowserTextToSpeech, BrowserVoiceCapture, FakeSpeechToText, mapMicrophoneError } from '../../lib/voice/browser'
+import { BrowserTextToSpeech, BrowserVoiceCapture, ServerSpeechToText, mapMicrophoneError } from '../../lib/voice/browser'
 import type { VoiceState } from '../../lib/voice/types'
 
 type Props = {
@@ -28,6 +28,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const [files, setFiles] = useState<File[]>([])
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
   const [voiceMessage, setVoiceMessage] = useState('')
+  const [voiceDraft, setVoiceDraft] = useState(false)
   const controller = useRef<AbortController | null>(null)
   const voiceController = useRef<AbortController | null>(null)
   const voiceCapture = useRef<BrowserVoiceCapture | null>(null)
@@ -44,7 +45,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   function newConversation() {
     controller.current?.abort()
     cancelVoice(false)
-    setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setStatus('ready'); setSidebarOpen(false)
+    setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setStatus('ready'); setSidebarOpen(false); setVoiceDraft(false)
     window.history.replaceState({}, '', '/app')
   }
 
@@ -74,7 +75,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     } finally { controller.current = null }
   }
 
-  function submit(event: FormEvent) { event.preventDefault(); void sendMessage(content) }
+  function submit(event: FormEvent) { event.preventDefault(); const speakResponse = voiceDraft; setVoiceDraft(false); setVoiceMessage(''); void sendMessage(content, speakResponse) }
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }
   function cancel() { controller.current?.abort() }
 
@@ -114,10 +115,11 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     try {
       const audio = await capture.stop()
       voiceCapture.current = null
-      const transcript = await new FakeSpeechToText().transcribe(audio, abortController.signal)
+      const transcript = await new ServerSpeechToText().transcribe(audio, abortController.signal)
       setContent(transcript.text)
-      setVoiceMessage('Transcrição local de validação criada. Enviando ao Pegasus...')
-      await sendMessage(transcript.text, true)
+      setVoiceDraft(true)
+      setVoiceState('idle')
+      setVoiceMessage(`Entendi: “${transcript.text}” Revise o texto e toque em Enviar.`)
     } catch (caught) {
       if (abortController.signal.aborted) { setVoiceState('cancelled'); setVoiceMessage('Interação por voz cancelada.') }
       else { const safe = mapMicrophoneError(caught); setVoiceState('error'); setVoiceMessage(safe.message) }
@@ -131,6 +133,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     voiceCapture.current = null
     setVoiceState(showMessage ? 'cancelled' : 'idle')
     setVoiceMessage(showMessage ? 'Interação por voz cancelada.' : '')
+    setVoiceDraft(false)
   }
 
   function toggleVoice() {
