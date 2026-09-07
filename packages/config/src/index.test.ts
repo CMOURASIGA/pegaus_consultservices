@@ -4,6 +4,7 @@ import { readServerConfig } from './index'
 describe('server configuration', () => {
   it('rejects public service role variables', () => {
     expect(() => readServerConfig({ NODE_ENV: 'test', NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: 'do-not-expose-this-value' })).toThrow(/never be public/)
+    expect(() => readServerConfig({ NODE_ENV: 'test', NEXT_PUBLIC_OPENAI_API_KEY: 'do-not-expose-this-value' })).toThrow(/never be public/)
   })
   it('requires Supabase public config in production', () => {
     expect(() => readServerConfig({ NODE_ENV: 'production' })).toThrow(/required in production/)
@@ -14,5 +15,6 @@ describe('server configuration', () => {
     expect(config.AI_ROUTER_RETRIES_PER_MODEL).toBe(0)
     expect(config.AI_ROUTER_FALLBACK_ENABLED).toBe(false)
     expect(config.AI_ROUTER_FALLBACK_ALLOW_PAID).toBe(false)
+    expect(config.OPENAI_API_KEY).toBeUndefined()
   })
 })

@@ -12,6 +12,7 @@ const serverSchema = z.object({
   APP_VERSION: z.string().default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
+  OPENAI_API_KEY: optionalValue(z.string().min(20)),
   AI_ROUTER_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(30_000),
   AI_ROUTER_RETRIES_PER_MODEL: z.coerce.number().int().min(0).max(3).default(0),
   AI_ROUTER_FALLBACK_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
@@ -29,8 +30,8 @@ export function readPublicConfig(env: NodeJS.ProcessEnv = process.env): PublicCo
 }
 
 export function readServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
-  if (Object.keys(env).some((key) => key.startsWith('NEXT_PUBLIC_') && key.includes('SERVICE_ROLE'))) {
-    throw new Error('A service-role credential must never be public')
+  if (Object.keys(env).some((key) => key.startsWith('NEXT_PUBLIC_') && (key.includes('SERVICE_ROLE') || key.includes('OPENAI')))) {
+    throw new Error('A privileged credential must never be public')
   }
   const parsed = serverSchema.safeParse(env)
   if (!parsed.success) throw new Error('Invalid server application configuration')
