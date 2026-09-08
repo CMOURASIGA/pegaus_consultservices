@@ -2,7 +2,7 @@
 
 ## Escopo da Sprint 5
 
-Esta implementação entrega memória seletiva e contexto mínimo sem antecipar embeddings, RAG, Google Drive ou Knowledge Store. O comportamento é determinístico e funciona com o provider fake, sem API paga.
+Esta implementação entrega memória seletiva e contexto mínimo. A integração documental posterior está descrita em `DRIVE_DOCUMENTS_IMPLEMENTATION.md`. O comportamento permanece determinístico e funciona com o provider fake, sem API paga.
 
 ## Boundaries
 
@@ -36,7 +36,7 @@ Memória recuperada é contexto não executivo. Ela não concede permissão, nã
 
 - sem similaridade vetorial ou embeddings;
 - sem resolução completa de entidades ou referências ambíguas;
-- sem Knowledge Store ou documentos do Drive;
+- Google Drive real continua dependente de OAuth e cofre server-side, embora o boundary do Knowledge Store já exista;
 - sem exclusão física de memória;
 - sem automação de consolidação ou deduplicação semântica;
 - sem provider de linguagem pago para decidir curadoria.

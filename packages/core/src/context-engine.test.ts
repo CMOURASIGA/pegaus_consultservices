@@ -45,4 +45,12 @@ describe('ContextEngine', () => {
     const repository = new Repository([base({ id: 'secret', content: 'api_key=valor-privado para projeto Pegasus' })])
     expect((await new ContextEngine(repository).assemble(request('projeto Pegasus'))).items).toEqual([])
   })
+
+  it('adds relevant document chunks as explicitly untrusted context', async () => {
+    const knowledge = { retrieve: vi.fn(async () => [{ id: 'chunk-1', documentId: 'doc-1', title: 'Plano', content: 'O cronograma do Pegasus está no Drive.', classification: 'internal' as const, trust: 'untrusted_external' as const }]) }
+    const observer = { record: vi.fn() }
+    const context = await new ContextEngine(new Repository([]), { maxItems: 3, maxCharacters: 500, maxItemCharacters: 200 }, observer, knowledge).assemble(request('cronograma Pegasus'))
+    expect(context.items).toEqual([{ source: 'document:doc-1:chunk:chunk-1:untrusted_external', classification: 'internal', value: 'O cronograma do Pegasus está no Drive.' }])
+    expect(observer.record).toHaveBeenCalledWith(expect.objectContaining({ sources: { document: 1 } }))
+  })
 })

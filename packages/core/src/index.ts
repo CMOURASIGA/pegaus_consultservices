@@ -7,6 +7,7 @@ export * from './fake-provider'
 export * from './orchestrator'
 export * from './memory'
 export * from './context-engine'
+export * from './knowledge-store'
 
 export async function checkSupabase(fetcher: typeof fetch = fetch): Promise<HealthComponent> {
   const started = Date.now()

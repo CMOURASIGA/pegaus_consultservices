@@ -4,6 +4,9 @@ import { containsSecret, memoryQuery, type MemoryRecord, type MemoryRepository }
 export type ContextBudget = { maxItems: number; maxCharacters: number; maxItemCharacters: number }
 export type ContextMetrics = { correlationId: string; candidates: number; selected: number; characters: number; truncated: boolean; sources: Record<string, number> }
 export interface ContextObserver { record(metrics: ContextMetrics): void | Promise<void> }
+export interface KnowledgeContextSource {
+  retrieve(ownerId: string, query: string, limit?: number): Promise<readonly { id: string; documentId: string; title: string; content: string; classification: 'public' | 'internal' | 'confidential'; trust: 'untrusted_external' }[]>
+}
 
 const defaultBudget: ContextBudget = { maxItems: 6, maxCharacters: 4_000, maxItemCharacters: 1_000 }
 const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na','nos','nas'])
@@ -22,7 +25,7 @@ function score(memory: MemoryRecord, queryTerms: Set<string>) {
 }
 
 export class ContextEngine implements ContextPort {
-  constructor(private readonly memories: MemoryRepository, private readonly budget: ContextBudget = defaultBudget, private readonly observer?: ContextObserver) {}
+  constructor(private readonly memories: MemoryRepository, private readonly budget: ContextBudget = defaultBudget, private readonly observer?: ContextObserver, private readonly knowledge?: KnowledgeContextSource) {}
 
   async assemble(request: InteractionRequest): Promise<ContextSnapshot> {
     const candidates = await this.memories.listActive(request.actorId, 50)
@@ -45,8 +48,20 @@ export class ContextEngine implements ContextPort {
       usedIds.push(memory.id)
       characters += value.length
     }
+    const documents = this.knowledge && items.length < this.budget.maxItems
+      ? await this.knowledge.retrieve(request.actorId, memoryQuery(request), this.budget.maxItems - items.length)
+      : []
+    for (const chunk of documents) {
+      if (items.length >= this.budget.maxItems) { truncated = true; break }
+      const value = chunk.content.slice(0, this.budget.maxItemCharacters)
+      if (characters + value.length > this.budget.maxCharacters) { truncated = true; continue }
+      items.push({ source: `document:${chunk.documentId}:chunk:${chunk.id}:untrusted_external`, classification: chunk.classification, value })
+      characters += value.length
+    }
     if (usedIds.length) await this.memories.markUsed?.(request.actorId, usedIds)
-    await this.observer?.record({ correlationId: request.correlationId, candidates: candidates.length, selected: items.length, characters, truncated, sources: items.length ? { memory: items.length } : {} })
+    const memoryCount = usedIds.length
+    const documentCount = items.length - memoryCount
+    await this.observer?.record({ correlationId: request.correlationId, candidates: candidates.length + documents.length, selected: items.length, characters, truncated, sources: { ...(memoryCount ? { memory: memoryCount } : {}), ...(documentCount ? { document: documentCount } : {}) } })
     return { id: `context-${request.id}`, items }
   }
 }

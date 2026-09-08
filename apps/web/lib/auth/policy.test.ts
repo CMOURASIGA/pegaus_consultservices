@@ -26,6 +26,7 @@ describe('authentication policy', () => {
     expect(sessionFailure('/sessions', true, 'suspended')).toBe('account_unavailable')
     expect(sessionFailure('/security/mfa', true, 'active', true)).toBe('session_revoked')
     expect(sessionFailure('/memory', false)).toBe('auth_required')
+    expect(sessionFailure('/knowledge', false)).toBe('auth_required')
     expect(sessionFailure('/app', true, 'active')).toBeNull()
     expect(sessionFailure('/login', false)).toBeNull()
   })

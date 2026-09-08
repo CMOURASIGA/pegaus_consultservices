@@ -6,9 +6,10 @@ import { getVerifiedIdentity } from '../../../lib/auth/server'
 import { ChatService, createChatCore } from '../../../lib/chat/service'
 import { SupabaseChatStore } from '../../../lib/chat/store'
 import { uploadChatAttachments } from '../../../lib/chat/attachments'
-import { ContextEngine, MemoryCurator } from '@pegasus/core'
+import { ContextEngine, KnowledgeStore, MemoryCurator } from '@pegasus/core'
 import { logger } from '@pegasus/logging'
 import { SupabaseMemoryStore } from '../../../lib/memory/store'
+import { SupabaseKnowledgeRepository } from '../../../lib/knowledge/store'
 
 export const runtime = 'nodejs'
 
@@ -37,7 +38,9 @@ export async function POST(request: Request) {
     const files = form ? form.getAll('attachments').filter((value): value is File => value instanceof File) : []
     const attachments = await uploadChatAttachments(identity.supabase, identity.claims.sub!, files)
     const memoryStore = new SupabaseMemoryStore(identity.supabase)
-    const context = new ContextEngine(memoryStore, undefined, { record(metrics) { logger.info('context.assembled', metrics) } })
+    const knowledgeRepository = new SupabaseKnowledgeRepository(identity.supabase)
+    const knowledge = new KnowledgeStore([], knowledgeRepository)
+    const context = new ContextEngine(memoryStore, undefined, { record(metrics) { logger.info('context.assembled', metrics) } }, knowledge)
     const service = new ChatService(new SupabaseChatStore(identity.supabase), createChatCore(undefined, context), new MemoryCurator(memoryStore))
     const result = await service.send({ actorId: identity.claims.sub!, content: parsed.data.content, conversationId: parsed.data.conversationId, attachments, signal: request.signal })
     if (attachments.length) await identity.supabase.from('documents').update({ metadata: { source: 'chat', external_content_trust: 'untrusted', conversation_id: result.conversation.id, message_id: result.userMessage.id } }).eq('owner_id', identity.claims.sub!).in('id', attachments.map((item) => item.id))
