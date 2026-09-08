@@ -24,7 +24,7 @@ export function isActiveProfile(status: unknown): boolean {
 }
 
 export function isProtectedPath(pathname: string): boolean {
-  return ['/app', '/sessions', '/security'].some((prefix) => pathname.startsWith(prefix))
+  return ['/app', '/memory', '/sessions', '/security'].some((prefix) => pathname.startsWith(prefix))
 }
 
 export function sessionFailure(pathname: string, authenticated: boolean, profileStatus?: string, revoked = false) {
