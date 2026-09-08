@@ -3,9 +3,12 @@ import { AppError } from '@pegasus/shared'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getVerifiedIdentity } from '../../../lib/auth/server'
-import { ChatService } from '../../../lib/chat/service'
+import { ChatService, createChatCore } from '../../../lib/chat/service'
 import { SupabaseChatStore } from '../../../lib/chat/store'
 import { uploadChatAttachments } from '../../../lib/chat/attachments'
+import { ContextEngine, MemoryCurator } from '@pegasus/core'
+import { logger } from '@pegasus/logging'
+import { SupabaseMemoryStore } from '../../../lib/memory/store'
 
 export const runtime = 'nodejs'
 
@@ -33,7 +36,9 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: { code: 'INVALID_MESSAGE', message: 'Revise a mensagem e tente novamente.' } }, { status: 400 })
     const files = form ? form.getAll('attachments').filter((value): value is File => value instanceof File) : []
     const attachments = await uploadChatAttachments(identity.supabase, identity.claims.sub!, files)
-    const service = new ChatService(new SupabaseChatStore(identity.supabase))
+    const memoryStore = new SupabaseMemoryStore(identity.supabase)
+    const context = new ContextEngine(memoryStore, undefined, { record(metrics) { logger.info('context.assembled', metrics) } })
+    const service = new ChatService(new SupabaseChatStore(identity.supabase), createChatCore(undefined, context), new MemoryCurator(memoryStore))
     const result = await service.send({ actorId: identity.claims.sub!, content: parsed.data.content, conversationId: parsed.data.conversationId, attachments, signal: request.signal })
     if (attachments.length) await identity.supabase.from('documents').update({ metadata: { source: 'chat', external_content_trust: 'untrusted', conversation_id: result.conversation.id, message_id: result.userMessage.id } }).eq('owner_id', identity.claims.sub!).in('id', attachments.map((item) => item.id))
     return NextResponse.json(result, { status: parsed.data.conversationId ? 200 : 201, headers: { 'Cache-Control': 'no-store' } })

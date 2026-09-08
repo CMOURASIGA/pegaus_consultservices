@@ -31,6 +31,7 @@ export type SendChatResult = {
   correlationId: string
   provider: string
   model: string
+  memory: { action: 'persist' | 'discard'; memoryId?: string; reason?: string }
 }
 
 export interface ChatStore {

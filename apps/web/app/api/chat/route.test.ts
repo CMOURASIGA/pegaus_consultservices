@@ -13,7 +13,8 @@ vi.mock('../../../lib/auth/server', () => ({
   },
 }))
 vi.mock('../../../lib/chat/store', () => ({ SupabaseChatStore: class {} }))
-vi.mock('../../../lib/chat/service', () => ({ ChatService: class { send = state.send } }))
+vi.mock('../../../lib/chat/service', () => ({ ChatService: class { send = state.send }, createChatCore: () => ({}) }))
+vi.mock('../../../lib/memory/store', () => ({ SupabaseMemoryStore: class { listActive = async () => [] } }))
 vi.mock('../../../lib/chat/attachments', () => ({ uploadChatAttachments: state.upload }))
 
 import { POST } from './route'

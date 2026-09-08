@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { AiRouter, AiRouterError, FakeAiProvider, PegasusCore } from '@pegasus/core'
-import type { ContextPort, InteractionRequest, RouterConfig, RouterObserver } from '@pegasus/core'
+import type { ContextPort, InteractionRequest, MemoryCurator, RouterConfig, RouterObserver } from '@pegasus/core'
 import { logger } from '@pegasus/logging'
 import { AppError } from '@pegasus/shared'
 import type { ChatStore, SendChatInput, SendChatResult } from './types'
@@ -17,9 +17,9 @@ const routerConfig: RouterConfig = {
   fallback: { enabled: false, maxModels: 1, allowPaid: false },
 }
 
-export function createChatCore(responseText = 'Recebi sua mensagem. O Pegasus está operando em modo local seguro, sem consumo de API paga.') {
+export function createChatCore(responseText = 'Recebi sua mensagem. O Pegasus está operando em modo local seguro, sem consumo de API paga.', suppliedContext?: ContextPort) {
   const observer: RouterObserver = { record(trace) { logger.info('chat.ai_route', { correlationId: trace.correlationId, durationMs: trace.durationMs, provider: trace.provider, model: trace.model, status: trace.status, usage: trace.usage, estimatedCostUsd: trace.estimatedCostUsd, fallback: trace.fallback, error: trace.error }) } }
-  const context: ContextPort = { async assemble(request) { return { id: `context-${request.id}`, items: [] } } }
+  const context: ContextPort = suppliedContext ?? { async assemble(request) { return { id: `context-${request.id}`, items: [] } } }
   return new PegasusCore(new AiRouter(routerConfig, [new FakeAiProvider('pegasus-fake', { type: 'success', content: responseText, usage: { inputUnits: 0, outputUnits: 0, totalUnits: 0, unit: 'tokens' } })], observer), context)
 }
 
@@ -29,7 +29,7 @@ function titleFrom(content: string) {
 }
 
 export class ChatService {
-  constructor(private readonly store: ChatStore, private readonly core: Pick<PegasusCore, 'handle'> = createChatCore()) {}
+  constructor(private readonly store: ChatStore, private readonly core: Pick<PegasusCore, 'handle'> = createChatCore(), private readonly curator?: Pick<MemoryCurator, 'capture'>) {}
 
   async send(input: SendChatInput): Promise<SendChatResult> {
     const content = input.content.trim()
@@ -41,12 +41,13 @@ export class ChatService {
       : await this.store.createConversation(input.actorId, titleFrom(content))
     if (!conversation) throw new AppError('CONVERSATION_NOT_FOUND', 'Conversa não encontrada.', 404)
     const userMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'user', content, correlationId, attachments: input.attachments })
+    const curation = await this.curator?.capture({ ownerId: input.actorId, content, source: { kind: 'conversation', ref: conversation.id } })
     const hasImage = input.attachments?.some((item) => item.mediaType.startsWith('image/')) ?? false
     const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: false, signal: input.signal } }
     try {
       const result = await this.core.handle(request)
       const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: result.content, correlationId, provider: result.route.provider, model: result.route.model })
-      return { conversation, userMessage, assistantMessage, correlationId, provider: result.route.provider, model: result.route.model }
+      return { conversation, userMessage, assistantMessage, correlationId, provider: result.route.provider, model: result.route.model, memory: curation?.action === 'persist' ? { action: 'persist', memoryId: curation.memory.id } : { action: 'discard', reason: curation?.reason ?? 'curator_unavailable' } }
     } catch (error) {
       if (error instanceof AiRouterError && error.detail.code === 'cancelled') throw new AppError('GENERATION_CANCELLED', 'Geração cancelada.', 499)
       if (error instanceof AiRouterError && error.detail.code === 'timeout') throw new AppError('GENERATION_TIMEOUT', 'O tempo de resposta foi excedido. Tente novamente.', 504)

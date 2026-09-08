@@ -28,6 +28,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const [files, setFiles] = useState<File[]>([])
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
   const [voiceMessage, setVoiceMessage] = useState('')
+  const [memoryNotice, setMemoryNotice] = useState('')
   const controller = useRef<AbortController | null>(null)
   const voiceController = useRef<AbortController | null>(null)
   const voiceCapture = useRef<BrowserVoiceCapture | null>(null)
@@ -45,7 +46,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   function newConversation() {
     controller.current?.abort()
     cancelVoice(false)
-    setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setStatus('ready'); setSidebarOpen(false)
+    setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setMemoryNotice(''); setStatus('ready'); setSidebarOpen(false)
     window.history.replaceState({}, '', '/app')
   }
 
@@ -66,6 +67,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       setConversations((current) => [payload.conversation, ...current.filter((item) => item.id !== payload.conversation.id)])
       window.history.replaceState({}, '', `/app?conversation=${payload.conversation.id}`)
       setFiles([]); setRetryContent(''); setStatus('ready')
+      setMemoryNotice(payload.memory.action === 'persist' ? 'Memória guardada. Você pode revisar ou corrigir esse item na área Memória.' : '')
       if (speakResponse) speakAssistant(payload.assistantMessage.content)
       else if (voiceState === 'processing') setVoiceState('idle')
     } catch (caught) {
@@ -157,7 +159,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
           <p className="navigation-label">CONVERSAS RECENTES</p>
           {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
         </nav>
-        <nav className="sidebar-footer" aria-label="Conta"><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
+        <nav className="sidebar-footer" aria-label="Conta"><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
       </aside>
       {sidebarOpen && <button className="sidebar-backdrop" type="button" aria-label="Fechar conversas" onClick={() => setSidebarOpen(false)} />}
 
@@ -169,7 +171,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
         </header>
 
         <div className="message-region" aria-live="polite" aria-busy={status === 'processing'}>
-          {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName.toLocaleUpperCase('pt-BR')}.</h1><p>Como posso ajudar agora?</p><small>Este ambiente usa respostas locais de teste e não gera custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span>{message.attachments?.length ? <div className="message-attachments">{message.attachments.map((item) => <span key={item.id}>▧ {item.name}</span>)}</div> : null}<p>{message.content}</p></article>)}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está preparando a resposta...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}<div ref={endRef} /></div>}
+          {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName.toLocaleUpperCase('pt-BR')}.</h1><p>Como posso ajudar agora?</p><small>Este ambiente usa respostas locais de teste e não gera custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span>{message.attachments?.length ? <div className="message-attachments">{message.attachments.map((item) => <span key={item.id}>▧ {item.name}</span>)}</div> : null}<p>{message.content}</p></article>)}{memoryNotice ? <div className="chat-notice memory" role="status"><span>{memoryNotice}</span><a href="/memory">Revisar memória</a></div> : null}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está preparando a resposta...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}<div ref={endRef} /></div>}
         </div>
 
         <div className="composer-wrap">

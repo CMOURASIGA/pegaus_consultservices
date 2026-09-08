@@ -83,4 +83,12 @@ describe('ChatService', () => {
     expect(JSON.stringify(handle.mock.calls)).not.toContain('foto.png')
     expect(store.messages[0]?.attachments).toEqual([attachment])
   })
+
+  it('runs selective curation after persisting the user message', async () => {
+    const store = new MemoryChatStore()
+    const curator = { capture: vi.fn().mockResolvedValue({ action: 'persist', memory: { id: 'memory-1' } }) }
+    const result = await new ChatService(store, createChatCore(), curator).send({ actorId: 'owner-a', content: 'Lembre que prefiro revisar a SPEC' })
+    expect(curator.capture).toHaveBeenCalledWith(expect.objectContaining({ ownerId: 'owner-a', content: 'Lembre que prefiro revisar a SPEC', source: expect.objectContaining({ kind: 'conversation' }) }))
+    expect(result.memory).toEqual({ action: 'persist', memoryId: 'memory-1' })
+  })
 })
