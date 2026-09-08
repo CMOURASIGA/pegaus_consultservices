@@ -14,7 +14,9 @@ Sprint 4 concluída técnica e funcionalmente na branch `develop`, com validaç�
 - captura explícita de microfone;
 - transcrição real server-side com `gpt-transcribe`;
 - texto reconhecido preservado no balão `Você`;
-- envio automático após encerramento manual da gravação;
+- encerramento automático após fala seguida de aproximadamente 1,5 segundo de silêncio;
+- segundo toque preservado como alternativa manual;
+- envio automático da transcrição ao Chat;
 - resposta fake preservada no AI Router;
 - leitura da resposta por síntese de voz do navegador.
 
@@ -32,22 +34,22 @@ Sprint 4 concluída técnica e funcionalmente na branch `develop`, com validaç�
 
 - lint aprovado;
 - typecheck aprovado;
-- 58 testes aprovados em 18 arquivos;
+- 60 testes aprovados em 18 arquivos;
 - build Next.js aprovado;
 - dependency audit com 0 vulnerabilidades;
 - CI verde;
 - Preview Vercel READY;
-- login, Chat, persistência, desktop, mobile e transcrição real validados pelo proprietário.
+- login, Chat, persistência, desktop, mobile, multimodalidade, transcrição real e encerramento automático por silêncio validados pelo proprietário.
 
 ## Commits finais
 
 - transcrição real com confirmação: `2e6324e3f221cd379912bcd219a0dcd1df1306c7`;
-- envio direto da transcrição: `58b8503f7beb156cb38d228a7d8d62cb09d99b09`.
+- envio direto da transcrição: `58b8503f7beb156cb38d228a7d8d62cb09d99b09`;
+- encerramento automático por silêncio: `43e390ce2ade9f0f967804583cb701513f38176c`.
 
 ## Pendências não bloqueantes
 
-- VAD e encerramento automático por silêncio;
-- tolerância a ruído e proteção contra encerramento precoce;
+- calibração adicional do detector para ambientes com ruído intenso;
 - provider de linguagem real, sujeito a decisão explícita de custo;
 - cerimônia real de enrollment/challenge/verify TOTP antes do go-live;
 - exclusão de conversas, a ser priorizada em unidade de gestão do histórico;
