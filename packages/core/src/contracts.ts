@@ -38,6 +38,7 @@ export type ContextSnapshot = {
     value: string
     kind?: 'trusted_session' | 'memory' | 'history' | 'external'
     trust?: 'trusted' | 'contextual' | 'untrusted_external'
+    provenance?: { sourceKind: string; sourceRef?: string; recordedAt: string; updatedAt: string; authority: string; confidence: number }
   }[]
 }
 

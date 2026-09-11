@@ -10,6 +10,7 @@ import { ContextEngine, KnowledgeStore, MemoryCurator } from '@pegasus/core'
 import { logger } from '@pegasus/logging'
 import { SupabaseMemoryStore } from '../../../lib/memory/store'
 import { SupabaseKnowledgeRepository } from '../../../lib/knowledge/store'
+import { SupabaseConversationContextSource } from '../../../lib/chat/history'
 
 export const runtime = 'nodejs'
 
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     const memoryStore = new SupabaseMemoryStore(identity.supabase)
     const knowledgeRepository = new SupabaseKnowledgeRepository(identity.supabase)
     const knowledge = new KnowledgeStore([], knowledgeRepository)
-    const context = new ContextEngine(memoryStore, undefined, { record(metrics) { logger.info('context.assembled', metrics) } }, knowledge)
+    const context = new ContextEngine(memoryStore, undefined, { record(metrics) { logger.info('context.assembled', metrics) } }, knowledge, new SupabaseConversationContextSource(identity.supabase))
     const runtime = createConfiguredChatCore(context)
     const service = new ChatService(new SupabaseChatStore(identity.supabase), runtime.core, new MemoryCurator(memoryStore), runtime.allowPaidModels)
     const result = await service.send({ actorId: identity.claims.sub!, content: parsed.data.content, conversationId: parsed.data.conversationId, attachments, signal: request.signal })

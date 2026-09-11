@@ -48,13 +48,19 @@ export class SupabaseMemoryStore implements MemoryRepository {
     return (data as MemoryRow[]).map(toMemory)
   }
 
+  async findActiveByTitle(ownerId: string, title: string) {
+    const { data, error } = await this.client.from('memories').select(fields).eq('owner_id', ownerId).eq('title', title).eq('status', 'active').order('updated_at', { ascending: false }).limit(1).maybeSingle()
+    if (error) throw new AppError('MEMORY_READ_FAILED', 'Não foi possível consultar a memória.', 503)
+    return data ? toMemory(data as MemoryRow) : null
+  }
+
   async list(ownerId: string, limit = 100) {
     const { data, error } = await this.client.from('memories').select(fields).eq('owner_id', ownerId).neq('status', 'deleted').order('updated_at', { ascending: false }).limit(limit)
     if (error) throw new AppError('MEMORY_READ_FAILED', 'Não foi possível consultar as memórias.', 503)
     return (data as MemoryRow[]).map(toMemory)
   }
 
-  async correct(input: { ownerId: string; memoryId: string; content: string; reason: string }) {
+  async correct(input: { ownerId: string; memoryId: string; content: string; reason: string; source?: { kind: string; ref?: string } }) {
     const { data: current, error: readError } = await this.client.from('memories').select(fields).eq('owner_id', input.ownerId).eq('id', input.memoryId).eq('status', 'active').maybeSingle()
     if (readError) throw new AppError('MEMORY_READ_FAILED', 'Não foi possível consultar a memória.', 503)
     if (!current) throw new AppError('MEMORY_NOT_FOUND', 'Memória não encontrada ou inativa.', 404)
@@ -63,9 +69,18 @@ export class SupabaseMemoryStore implements MemoryRepository {
     const versionNo = (latest?.version_no ?? 0) + 1
     const { error: versionError } = await this.client.from('memory_versions').insert({ owner_id: input.ownerId, memory_id: input.memoryId, version_no: versionNo, content: input.content, change_reason: input.reason })
     if (versionError) throw new AppError('MEMORY_UPDATE_FAILED', 'Não foi possível corrigir a memória.', 503)
-    const { data, error } = await this.client.from('memories').update({ content: input.content, authority: 'explicit_user', confidence: 1 }).eq('owner_id', input.ownerId).eq('id', input.memoryId).eq('status', 'active').select(fields).single()
-    if (error || !data) {
+    const source = input.source ?? { kind: 'user_action', ref: 'memory-ui' }
+    const { error: sourceError } = await this.client.from('memory_sources').insert({ owner_id: input.ownerId, memory_id: input.memoryId, source_type: source.kind, source_ref: source.ref, authority: 'explicit_user', confidence: 1 })
+    if (sourceError) {
       await this.client.from('memory_versions').delete().eq('owner_id', input.ownerId).eq('memory_id', input.memoryId).eq('version_no', versionNo)
+      throw new AppError('MEMORY_UPDATE_FAILED', 'Não foi possível corrigir a memória.', 503)
+    }
+    const { data, error } = await this.client.from('memories').update({ content: input.content, authority: 'explicit_user', confidence: 1, source_kind: source.kind, source_ref: source.ref }).eq('owner_id', input.ownerId).eq('id', input.memoryId).eq('status', 'active').select(fields).single()
+    if (error || !data) {
+      await Promise.all([
+        this.client.from('memory_versions').delete().eq('owner_id', input.ownerId).eq('memory_id', input.memoryId).eq('version_no', versionNo),
+        this.client.from('memory_sources').delete().eq('owner_id', input.ownerId).eq('memory_id', input.memoryId).eq('source_type', source.kind).eq('source_ref', source.ref ?? null),
+      ])
       throw new AppError('MEMORY_UPDATE_FAILED', 'Não foi possível corrigir a memória.', 503)
     }
     return toMemory(data as MemoryRow)

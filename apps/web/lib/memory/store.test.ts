@@ -32,6 +32,7 @@ describe('SupabaseMemoryStore', () => {
     expect(result.content).toBe('Branch corrigida')
     expect(calls).toEqual(expect.arrayContaining([
       expect.objectContaining({ table: 'memory_versions', operation: 'insert', value: expect.objectContaining({ version_no: 2, content: 'Branch corrigida' }) }),
+      expect.objectContaining({ table: 'memory_sources', operation: 'insert', value: expect.objectContaining({ owner_id: 'owner-a', memory_id: 'm1', source_type: 'user_action' }) }),
       expect.objectContaining({ table: 'memories', operation: 'eq', column: 'owner_id', match: 'owner-a' }),
       expect.objectContaining({ table: 'memory_versions', operation: 'eq', column: 'owner_id', match: 'owner-a' }),
     ]))

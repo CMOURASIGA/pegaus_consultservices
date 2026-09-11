@@ -67,7 +67,13 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       setConversations((current) => [payload.conversation, ...current.filter((item) => item.id !== payload.conversation.id)])
       window.history.replaceState({}, '', `/app?conversation=${payload.conversation.id}`)
       setFiles([]); setRetryContent(''); setStatus('ready')
-      setMemoryNotice(payload.memory.action === 'persist' ? 'Memória guardada. Você pode revisar ou corrigir esse item na área Memória.' : '')
+      setMemoryNotice(payload.memory.action === 'persist'
+        ? 'Memória guardada. Você pode revisar ou corrigir esse item na área Memória.'
+        : payload.memory.reason === 'sensitive'
+          ? 'Essa informação não foi guardada porque pode conter dado sensível ou credencial.'
+          : payload.memory.reason === 'curation_failed'
+            ? 'Não foi possível guardar essa informação agora. A conversa continuou normalmente.'
+            : '')
       if (speakResponse) speakAssistant(payload.assistantMessage.content)
       else if (voiceState === 'processing') setVoiceState('idle')
     } catch (caught) {
