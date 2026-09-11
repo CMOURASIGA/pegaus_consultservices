@@ -1,4 +1,4 @@
-import type { AiProviderAdapter, InteractionRequest, ModelDescriptor, ProviderRequest, RouterConfig, RouterObserver, RouterResult, RouterTrace, SanitizedRouterError, Usage } from './contracts'
+import type { AiProviderAdapter, InteractionRequest, ModelDescriptor, ProviderRequest, ProviderResponse, RouterConfig, RouterObserver, RouterResult, RouterTrace, SanitizedRouterError, Usage } from './contracts'
 import { ProviderError } from './provider-error'
 
 export class AiRouterError extends Error {
@@ -80,7 +80,7 @@ export class AiRouter {
           if (request.execution?.maxEstimatedCostUsd !== undefined && estimatedCostUsd !== undefined && estimatedCostUsd > request.execution.maxEstimatedCostUsd) {
             throw new AiRouterError({ code: 'configuration_error', retryable: false })
           }
-          await this.trace(request, model, durationMs, attempt, modelIndex > 0, 'completed', response.usage, estimatedCostUsd)
+          await this.trace(request, model, durationMs, attempt, modelIndex > 0, 'completed', response.usage, estimatedCostUsd, undefined, response.providerMetadata)
           return { content: response.content, trust: 'untrusted', provider: model.provider, model: model.model, usage: response.usage, estimatedCostUsd, latencyMs: durationMs, fallbackUsed: modelIndex > 0 }
         } catch (error) {
           const durationMs = Date.now() - started
@@ -93,8 +93,8 @@ export class AiRouter {
     throw new AiRouterError(lastError)
   }
 
-  private async trace(request: InteractionRequest, model: ModelDescriptor, durationMs: number, attempt: number, fallback: boolean, status: RouterTrace['status'], usage?: Usage, estimatedCostUsd?: number, error?: SanitizedRouterError) {
-    const trace: RouterTrace = { correlationId: request.correlationId, durationMs, provider: model.provider, model: model.model, status, usage, estimatedCostUsd, fallback, attempt, error }
+  private async trace(request: InteractionRequest, model: ModelDescriptor, durationMs: number, attempt: number, fallback: boolean, status: RouterTrace['status'], usage?: Usage, estimatedCostUsd?: number, error?: SanitizedRouterError, providerMetadata?: ProviderResponse['providerMetadata']) {
+    const trace: RouterTrace = { correlationId: request.correlationId, durationMs, provider: model.provider, model: model.model, status, usage, estimatedCostUsd, fallback, attempt, providerHttpStatus: providerMetadata?.httpStatus, providerRequestId: providerMetadata?.requestId, error }
     await this.observer.record(trace)
   }
 }

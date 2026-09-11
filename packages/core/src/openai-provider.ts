@@ -76,6 +76,7 @@ export class OpenAiProvider implements AiProviderAdapter {
         totalUnits: result.usage.total_tokens,
         unit: 'tokens',
       } : undefined,
+      providerMetadata: { httpStatus: response.status, requestId: safeString(response.headers.get('x-request-id')) },
     }
   }
 }

@@ -32,7 +32,13 @@ export type InteractionRequest = {
 
 export type ContextSnapshot = {
   id: string
-  items: readonly { source: string; classification: 'public' | 'internal' | 'confidential'; value: string }[]
+  items: readonly {
+    source: string
+    classification: 'public' | 'internal' | 'confidential'
+    value: string
+    kind?: 'trusted_session' | 'memory' | 'history' | 'external'
+    trust?: 'trusted' | 'contextual' | 'untrusted_external'
+  }[]
 }
 
 export type ModelMessage = { role: 'system' | 'user' | 'assistant'; content: string }
@@ -56,6 +62,7 @@ export type ProviderResponse = {
   content: string
   finishReason: 'completed' | 'length' | 'cancelled' | 'filtered' | 'unknown'
   usage?: Usage
+  providerMetadata?: { httpStatus?: number; requestId?: string }
 }
 
 export type ProviderStreamEvent =
@@ -109,6 +116,8 @@ export type RouterTrace = {
   estimatedCostUsd?: number
   fallback: boolean
   attempt: number
+  providerHttpStatus?: number
+  providerRequestId?: string
   error?: SanitizedRouterError
 }
 

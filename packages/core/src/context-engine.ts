@@ -44,7 +44,7 @@ export class ContextEngine implements ContextPort {
       if (items.length >= this.budget.maxItems) { truncated = true; break }
       const value = memory.content.slice(0, this.budget.maxItemCharacters)
       if (characters + value.length > this.budget.maxCharacters) { truncated = true; continue }
-      items.push({ source: `memory:${memory.id}:${memory.source.kind}`, classification: 'internal', value })
+      items.push({ source: `memory:${memory.id}:${memory.source.kind}`, classification: 'internal', value, kind: 'memory', trust: 'contextual' })
       usedIds.push(memory.id)
       characters += value.length
     }
@@ -55,7 +55,7 @@ export class ContextEngine implements ContextPort {
       if (items.length >= this.budget.maxItems) { truncated = true; break }
       const value = chunk.content.slice(0, this.budget.maxItemCharacters)
       if (characters + value.length > this.budget.maxCharacters) { truncated = true; continue }
-      items.push({ source: `document:${chunk.documentId}:chunk:${chunk.id}:untrusted_external`, classification: chunk.classification, value })
+      items.push({ source: `document:${chunk.documentId}:chunk:${chunk.id}:untrusted_external`, classification: chunk.classification, value, kind: 'external', trust: 'untrusted_external' })
       characters += value.length
     }
     if (usedIds.length) await this.memories.markUsed?.(request.actorId, usedIds)

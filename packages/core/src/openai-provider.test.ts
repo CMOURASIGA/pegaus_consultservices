@@ -13,9 +13,9 @@ describe('OpenAiProvider', () => {
   })
 
   it('maps a Responses API result and usage without exposing the key in output', async () => {
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Resposta real.' }] }], status: 'completed', usage: { input_tokens: 10, output_tokens: 4, total_tokens: 14 } }), { status: 200 }))
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Resposta real.' }] }], status: 'completed', usage: { input_tokens: 10, output_tokens: 4, total_tokens: 14 } }), { status: 200, headers: { 'x-request-id': 'req_success123' } }))
     const provider = new OpenAiProvider('test-key-that-is-long-enough', 800, fetcher)
-    await expect(provider.generate(request)).resolves.toEqual({ content: 'Resposta real.', finishReason: 'completed', usage: { inputUnits: 10, outputUnits: 4, totalUnits: 14, unit: 'tokens' } })
+    await expect(provider.generate(request)).resolves.toEqual({ content: 'Resposta real.', finishReason: 'completed', usage: { inputUnits: 10, outputUnits: 4, totalUnits: 14, unit: 'tokens' }, providerMetadata: { httpStatus: 200, requestId: 'req_success123' } })
     const init = fetcher.mock.calls[0]?.[1]
     expect(JSON.parse(String(init?.body))).toMatchObject({ model: 'gpt-test', max_output_tokens: 800, store: false })
   })

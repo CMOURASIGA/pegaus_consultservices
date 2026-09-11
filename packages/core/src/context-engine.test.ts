@@ -24,7 +24,7 @@ describe('ContextEngine', () => {
       base({ id: 'other-owner', ownerId: 'other', content: 'Projeto Pegasus secreto' }),
     ])
     const context = await new ContextEngine(repository).assemble(request('Qual branch usamos no projeto Pegasus?'))
-    expect(context.items).toEqual([{ source: 'memory:project:conversation', classification: 'internal', value: 'O projeto Pegasus usa a branch develop' }])
+    expect(context.items).toEqual([{ source: 'memory:project:conversation', classification: 'internal', value: 'O projeto Pegasus usa a branch develop', kind: 'memory', trust: 'contextual' }])
     expect(repository.markUsed).toHaveBeenCalledWith('owner', ['project'])
   })
 
@@ -50,7 +50,7 @@ describe('ContextEngine', () => {
     const knowledge = { retrieve: vi.fn(async () => [{ id: 'chunk-1', documentId: 'doc-1', title: 'Plano', content: 'O cronograma do Pegasus está no Drive.', classification: 'internal' as const, trust: 'untrusted_external' as const }]) }
     const observer = { record: vi.fn() }
     const context = await new ContextEngine(new Repository([]), { maxItems: 3, maxCharacters: 500, maxItemCharacters: 200 }, observer, knowledge).assemble(request('cronograma Pegasus'))
-    expect(context.items).toEqual([{ source: 'document:doc-1:chunk:chunk-1:untrusted_external', classification: 'internal', value: 'O cronograma do Pegasus está no Drive.' }])
+    expect(context.items).toEqual([{ source: 'document:doc-1:chunk:chunk-1:untrusted_external', classification: 'internal', value: 'O cronograma do Pegasus está no Drive.', kind: 'external', trust: 'untrusted_external' }])
     expect(observer.record).toHaveBeenCalledWith(expect.objectContaining({ sources: { document: 1 } }))
   })
 })

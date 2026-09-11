@@ -19,7 +19,7 @@ const routerConfig: RouterConfig = {
 }
 
 export function createChatCore(responseText = 'Recebi sua mensagem. O Pegasus está operando em modo local seguro, sem consumo de API paga.', suppliedContext?: ContextPort) {
-  const observer: RouterObserver = { record(trace) { logger.info('chat.ai_route', { correlationId: trace.correlationId, durationMs: trace.durationMs, provider: trace.provider, model: trace.model, status: trace.status, usage: trace.usage, estimatedCostUsd: trace.estimatedCostUsd, fallback: trace.fallback, error: trace.error }) } }
+  const observer: RouterObserver = { record(trace) { logger.info('chat.ai_route', { correlationId: trace.correlationId, durationMs: trace.durationMs, provider: trace.provider, model: trace.model, status: trace.status, usage: trace.usage, estimatedCostUsd: trace.estimatedCostUsd, fallback: trace.fallback, providerHttpStatus: trace.providerHttpStatus, providerRequestId: trace.providerRequestId, error: trace.error }) } }
   const context: ContextPort = suppliedContext ?? { async assemble(request) { return { id: `context-${request.id}`, items: [] } } }
   return new PegasusCore(new AiRouter(routerConfig, [new FakeAiProvider('pegasus-fake', { type: 'success', content: responseText, usage: { inputUnits: 0, outputUnits: 0, totalUnits: 0, unit: 'tokens' } })], observer), context)
 }
@@ -40,7 +40,7 @@ export function createConfiguredChatCore(suppliedContext?: ContextPort) {
     quality: 3, latency: 3, priority: 1, requiresCredential: true,
     pricing: { inputPerMillionUnits: 0.2, outputPerMillionUnits: 1.2 },
   }
-  const observer: RouterObserver = { record(trace) { logger.info('chat.ai_route', { correlationId: trace.correlationId, durationMs: trace.durationMs, provider: trace.provider, model: trace.model, status: trace.status, usage: trace.usage, estimatedCostUsd: trace.estimatedCostUsd, fallback: trace.fallback, error: trace.error }) } }
+  const observer: RouterObserver = { record(trace) { logger.info('chat.ai_route', { correlationId: trace.correlationId, durationMs: trace.durationMs, provider: trace.provider, model: trace.model, status: trace.status, usage: trace.usage, estimatedCostUsd: trace.estimatedCostUsd, fallback: trace.fallback, providerHttpStatus: trace.providerHttpStatus, providerRequestId: trace.providerRequestId, error: trace.error }) } }
   const context: ContextPort = suppliedContext ?? { async assemble(request) { return { id: `context-${request.id}`, items: [] } } }
   const router: RouterConfig = { models: [model], timeoutMs: config.AI_ROUTER_TIMEOUT_MS, retriesPerModel: config.AI_ROUTER_RETRIES_PER_MODEL, fallback: { enabled: false, maxModels: 1, allowPaid: false } }
   return { core: new PegasusCore(new AiRouter(router, [new OpenAiProvider(config.OPENAI_API_KEY, config.PEGASUS_AI_MAX_OUTPUT_TOKENS)], observer), context), allowPaidModels: true }
