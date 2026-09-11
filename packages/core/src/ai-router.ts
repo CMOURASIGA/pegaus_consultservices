@@ -1,4 +1,5 @@
 import type { AiProviderAdapter, InteractionRequest, ModelDescriptor, ProviderRequest, RouterConfig, RouterObserver, RouterResult, RouterTrace, SanitizedRouterError, Usage } from './contracts'
+import { ProviderError } from './provider-error'
 
 export class AiRouterError extends Error {
   constructor(public readonly detail: SanitizedRouterError) {
@@ -36,6 +37,7 @@ export function estimateCost(usage: Usage | undefined, model: ModelDescriptor): 
 
 function sanitizeError(error: unknown): SanitizedRouterError {
   if (error instanceof AiRouterError) return error.detail
+  if (error instanceof ProviderError) return error.detail
   if (error instanceof DOMException && error.name === 'TimeoutError') return { code: 'timeout', retryable: true }
   if (error instanceof DOMException && error.name === 'AbortError') return { code: 'cancelled', retryable: false }
   return { code: 'provider_error', retryable: true }

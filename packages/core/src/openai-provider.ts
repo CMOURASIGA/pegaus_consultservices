@@ -1,11 +1,31 @@
 import type { AiProviderAdapter, ProviderRequest, ProviderResponse } from './contracts'
+import { ProviderError } from './provider-error'
 
 type OpenAiResponse = {
-  output_text?: string
+  output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>
   status?: string
   incomplete_details?: { reason?: string }
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number }
-  error?: { type?: string }
+  error?: { type?: string; code?: string | null }
+}
+
+type OpenAiErrorResponse = { error?: { type?: unknown; code?: unknown } }
+
+function safeString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length <= 128 ? value : undefined
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 409 || status === 429 || status >= 500
+}
+
+function outputText(response: OpenAiResponse): string {
+  return (response.output ?? [])
+    .flatMap((item) => item.type === 'message' ? item.content ?? [] : [])
+    .filter((item) => item.type === 'output_text' && typeof item.text === 'string')
+    .map((item) => item.text?.trim() ?? '')
+    .filter(Boolean)
+    .join('\n')
 }
 
 export class OpenAiProvider implements AiProviderAdapter {
@@ -32,11 +52,23 @@ export class OpenAiProvider implements AiProviderAdapter {
       }),
       signal: input.signal,
     })
-    if (!response.ok) throw new Error(`OPENAI_HTTP_${response.status}`)
+    if (!response.ok) {
+      let errorBody: OpenAiErrorResponse = {}
+      try { errorBody = await response.json() as OpenAiErrorResponse } catch { /* no provider body to classify */ }
+      throw new ProviderError({
+        code: 'provider_error',
+        retryable: isRetryableStatus(response.status),
+        httpStatus: response.status,
+        providerErrorType: safeString(errorBody.error?.type),
+        providerErrorCode: safeString(errorBody.error?.code),
+        providerRequestId: safeString(response.headers.get('x-request-id')),
+      })
+    }
     const result = await response.json() as OpenAiResponse
-    if (!result.output_text?.trim()) throw new Error(`OPENAI_EMPTY_${result.status ?? result.error?.type ?? 'UNKNOWN'}`)
+    const content = outputText(result)
+    if (!content) throw new ProviderError({ code: 'provider_error', retryable: false, providerErrorType: 'empty_response' })
     return {
-      content: result.output_text.trim(),
+      content,
       finishReason: result.status === 'incomplete' && result.incomplete_details?.reason === 'max_output_tokens' ? 'length' : 'completed',
       usage: result.usage ? {
         inputUnits: result.usage.input_tokens,

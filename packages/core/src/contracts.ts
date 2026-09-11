@@ -93,6 +93,10 @@ export type RouterConfig = {
 export type SanitizedRouterError = {
   code: 'provider_unavailable' | 'timeout' | 'cancelled' | 'provider_error' | 'no_eligible_model' | 'configuration_error'
   retryable: boolean
+  httpStatus?: number
+  providerErrorType?: string
+  providerErrorCode?: string
+  providerRequestId?: string
 }
 
 export type RouterTrace = {

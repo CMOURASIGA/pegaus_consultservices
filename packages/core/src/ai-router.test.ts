@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AiRouter, AiRouterError, estimateCost, rankModels } from './ai-router'
 import { FakeAiProvider } from './fake-provider'
+import { ProviderError } from './provider-error'
 import type { InteractionRequest, ModelDescriptor, RouterConfig, RouterTrace } from './contracts'
 
 const freeFast: ModelDescriptor = { provider: 'fake-a', model: 'fast-v1', enabled: true, capabilities: ['fast', 'balanced'], modalities: ['text'], quality: 3, latency: 1, priority: 1, requiresCredential: false }
@@ -81,5 +82,14 @@ describe('AI Router', () => {
     await expect(router.route(request(), [{ role: 'user', content: 'x' }])).rejects.toBeInstanceOf(AiRouterError)
     expect(JSON.stringify(traces)).not.toMatch(/api-key|secret|sensitive/)
     expect(traces[0]?.error).toEqual({ code: 'provider_error', retryable: true })
+  })
+
+  it('preserves only sanitized provider diagnostics in traces', async () => {
+    const traces: RouterTrace[] = []
+    const provider = new FakeAiProvider('fake-a', { type: 'error', error: new ProviderError({ code: 'provider_error', retryable: false, httpStatus: 404, providerErrorType: 'invalid_request_error', providerErrorCode: 'model_not_found', providerRequestId: 'req_123' }) })
+    const router = new AiRouter(config([freeFast]), [provider], { record: (trace) => { traces.push(trace) } })
+    await expect(router.route(request(), [{ role: 'user', content: 'private' }])).rejects.toMatchObject({ detail: { providerErrorCode: 'model_not_found' } })
+    expect(traces[0]?.error).toEqual({ code: 'provider_error', retryable: false, httpStatus: 404, providerErrorType: 'invalid_request_error', providerErrorCode: 'model_not_found', providerRequestId: 'req_123' })
+    expect(JSON.stringify(traces)).not.toContain('private')
   })
 })

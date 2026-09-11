@@ -26,6 +26,13 @@ export function createChatCore(responseText = 'Recebi sua mensagem. O Pegasus es
 
 export function createConfiguredChatCore(suppliedContext?: ContextPort) {
   const config = readServerConfig()
+  logger.info('chat.ai_configuration', {
+    provider: config.PEGASUS_AI_PROVIDER,
+    model: config.PEGASUS_AI_MODEL,
+    maxOutputTokens: config.PEGASUS_AI_MAX_OUTPUT_TOKENS,
+    credentialPresent: Boolean(config.OPENAI_API_KEY),
+    fallback: false,
+  })
   if (config.PEGASUS_AI_PROVIDER !== 'openai') return { core: createChatCore(undefined, suppliedContext), allowPaidModels: false }
   const model = {
     provider: 'openai', model: config.PEGASUS_AI_MODEL, enabled: true,
