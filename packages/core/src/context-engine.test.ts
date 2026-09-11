@@ -78,8 +78,25 @@ describe('ContextEngine', () => {
   it('adds only relevant same-conversation history within the budget', async () => {
     const conversation = { retrieve: vi.fn(async () => [{ id: 'h1', role: 'user' as const, content: 'Decidimos usar Supabase no projeto.', createdAt: '2026-01-01T00:00:00Z' }]) }
     const context = await new ContextEngine(new Repository([]), undefined, undefined, undefined, conversation).assemble({ ...request('Por que decidimos usar Supabase?'), conversationId: 'c1' })
-    expect(context.items).toEqual([{ source: 'conversation:c1:message:h1', classification: 'internal', value: 'user: Decidimos usar Supabase no projeto.', kind: 'history', trust: 'contextual' }])
+    expect(context.items).toEqual([expect.objectContaining({
+      source: 'conversation:c1:message:h1',
+      classification: 'internal',
+      value: 'user: Decidimos usar Supabase no projeto.',
+      kind: 'history',
+      trust: 'contextual',
+      provenance: expect.objectContaining({ authority: 'user_provided', confidence: 1, sourceRef: 'message:h1' }),
+    })])
     expect(conversation.retrieve).toHaveBeenCalledWith('owner', 'c1', 'Por que decidimos usar Supabase?', 6)
+  })
+
+  it('marks assistant history as generated context without factual authority', async () => {
+    const conversation = { retrieve: vi.fn(async () => [
+      { id: 'user-update', role: 'user' as const, content: 'O projeto agora se chama ProjetoHorizonte.', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'assistant-echo', role: 'assistant' as const, content: 'O nome atual é ProjetoHorizonte.', createdAt: '2026-01-01T00:00:01Z' },
+    ]) }
+    const context = await new ContextEngine(new Repository([]), undefined, undefined, undefined, conversation).assemble({ ...request('Esse projeto já teve outro nome?'), conversationId: 'c1' })
+    expect(context.items[0]?.provenance).toMatchObject({ authority: 'user_provided', confidence: 1, sourceRef: 'message:user-update' })
+    expect(context.items[1]?.provenance).toMatchObject({ authority: 'assistant_generated', confidence: 0, sourceRef: 'message:assistant-echo' })
   })
 
   it('degrades without leaking data when a retrieval source fails', async () => {

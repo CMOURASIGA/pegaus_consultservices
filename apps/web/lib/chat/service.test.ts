@@ -88,7 +88,7 @@ describe('ChatService', () => {
     const store = new MemoryChatStore()
     const curator = { capture: vi.fn().mockResolvedValue({ action: 'persist', memory: { id: 'memory-1' } }) }
     const result = await new ChatService(store, createChatCore(), curator).send({ actorId: 'owner-a', content: 'Lembre que prefiro revisar a SPEC' })
-    expect(curator.capture).toHaveBeenCalledWith(expect.objectContaining({ ownerId: 'owner-a', content: 'Lembre que prefiro revisar a SPEC', source: expect.objectContaining({ kind: 'conversation' }) }))
+    expect(curator.capture).toHaveBeenCalledWith(expect.objectContaining({ ownerId: 'owner-a', content: 'Lembre que prefiro revisar a SPEC', source: { kind: 'conversation', ref: `message:${result.userMessage.id}` } }))
     expect(result.memory).toEqual({ action: 'persist', memoryId: 'memory-1' })
   })
 

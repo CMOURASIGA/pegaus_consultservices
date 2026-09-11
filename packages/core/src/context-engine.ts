@@ -64,7 +64,21 @@ export class ContextEngine implements ContextPort {
       if (items.length >= this.budget.maxItems) { truncated = true; break }
       const value = `${message.role}: ${message.content}`.slice(0, this.budget.maxItemCharacters)
       if (characters + value.length > this.budget.maxCharacters || containsSecret(value)) { truncated = true; continue }
-      items.push({ source: `conversation:${request.conversationId}:message:${message.id}`, classification: 'internal', value, kind: 'history', trust: 'contextual' })
+      items.push({
+        source: `conversation:${request.conversationId}:message:${message.id}`,
+        classification: 'internal',
+        value,
+        kind: 'history',
+        trust: 'contextual',
+        provenance: {
+          sourceKind: 'conversation_history',
+          sourceRef: `message:${message.id}`,
+          recordedAt: message.createdAt,
+          updatedAt: message.createdAt,
+          authority: message.role === 'user' ? 'user_provided' : 'assistant_generated',
+          confidence: message.role === 'user' ? 1 : 0,
+        },
+      })
       characters += value.length
     }
     const documents = this.knowledge && items.length < this.budget.maxItems

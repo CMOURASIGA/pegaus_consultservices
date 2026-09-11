@@ -100,3 +100,19 @@ Usar somente dados fictícios ou não sensíveis na primeira validação. Criar 
 7. notificações, briefing, hardening, backup/recuperação e preparação para produção.
 
 O trabalho deve parar neste checkpoint até o resultado de Christian.
+
+## Correção de validação: update e provenance
+
+Durante a primeira validação humana, a alteração de `ProjetoAurora` para `ProjetoHorizonte` revelou que a frase de atualização não havia sido curada. O banco continha somente a memória inicial ativa; o novo valor existia apenas em uma mensagem do usuário e em respostas posteriores do assistente. Como o histórico não carregava autoridade explícita, o modelo atribuiu indevidamente a confirmação ao próprio texto gerado.
+
+A correção mantém uma única memória ativa por identidade estável do projeto fictício, preserva o valor anterior em `memory_versions` e registra a nova mensagem do proprietário em `memory_sources`. Fontes de histórico agora chegam ao Core como `user_provided` ou `assistant_generated`; conteúdo gerado pelo assistente possui confiança factual zero e não pode substituir provenance do proprietário. Novas memórias criadas pelo Chat referenciam o ID da mensagem do usuário, em vez de apenas o ID da conversa.
+
+O dado fictício utilizado na validação foi reparado sem exclusão e sem migration:
+
+- valor atual ativo: `ProjetoHorizonte`;
+- versão 1: `ProjetoAurora`;
+- versão 2: atualização para `ProjetoHorizonte`;
+- fonte da versão atual: mensagem do usuário que declarou a mudança;
+- resposta anterior do assistente: não utilizada como fonte factual.
+
+Após a correção, 113 testes em 27 arquivos, lint, typecheck, build, standalone smoke, dependency audit e secret scan foram aprovados. O teste humano de update/provenance precisa ser repetido em uma nova sequência de conversas antes de qualquer declaração de `MEMORY E2E VALIDATED`.

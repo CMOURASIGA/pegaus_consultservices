@@ -20,6 +20,8 @@ Ordens explícitas como `lembre que`, `guarde`, `memorize` e `lembre disso` têm
 
 Títulos semânticos estáveis, como `relationship:spouse`, `project:7grafica` e `preference:product-development`, permitem detectar duplicidade e atualizar o fato atual sem criar duas verdades ativas. A atualização cria nova versão e nova entrada de origem antes de substituir o estado corrente.
 
+Quando a mensagem declara uma mudança de um projeto já identificado, a chave permanece ligada à identidade do projeto e não ao nome novo. O valor anterior fica somente no versionamento. A fonte da atualização aponta para a mensagem do proprietário. Histórico gerado pelo assistente pode sustentar continuidade conversacional, mas é marcado como `assistant_generated`, com confiança factual zero, e não substitui uma mensagem `user_provided` como provenance.
+
 Conteúdo com sinais ou formatos de credencial é descartado antes da persistência. Essa proteção é adicional e não substitui o Secret Manager.
 
 ## Estado e histórico

@@ -45,7 +45,7 @@ export type CurationDecision =
   | { action: 'persist'; memory: NewMemory }
 
 const explicitMemory = /^(?:(?:pegasus)[,!:]?\s*)?(?:por favor,?\s*)?(?:(?:quero que você\s+(?:se\s+)?lembre)|lembre(?:-se)?|guarde|memorize|registre)(?:\s+disso)?(?:\s+de)?(?:\s+que)?[\s,:-]+(.+)$/iu
-const reusableSignal = /\b(?:eu prefiro|minha preferência|quero que você|eu decidi|a decisão é|sempre use|nunca use|meu projeto|meu cliente|estou (?:desenvolvendo|criando)|(?:esposa|marido|filho|filha|sócio|sócia) (?:se chama|é)|trabalho (?:na|no)|meu objetivo)/iu
+const reusableSignal = /\b(?:eu prefiro|minha preferência|quero que você|eu decidi|a decisão é|sempre use|nunca use|meu projeto|meu cliente|estou (?:desenvolvendo|criando)|(?:o|meu) projeto(?: fictício)? (?:agora )?se chama|essa informação mudou|(?:esposa|marido|filho|filha|sócio|sócia) (?:se chama|é)|trabalho (?:na|no)|meu objetivo)/iu
 const secretSignal = /\b(?:password|senha|secret|token|api[_ -]?key|service[_ -]?role|private[_ -]?key)\b\s*[:=]\s*\S+/iu
 const credentialShape = /\b(?:sk-[a-z0-9_-]{16,}|eyJ[a-z0-9_-]{20,}\.[a-z0-9_-]{10,}|[a-f0-9]{32,})\b/iu
 const sensitiveImplicit = /\b(?:cpf|rg|passaporte|cartão de crédito|conta bancária|diagnóstico|prontuário)\b/iu
@@ -73,6 +73,7 @@ function slug(value: string) {
 function memoryTitle(content: string, type: MemoryType) {
   if (/\b(?:minha\s+)?esposa\b/iu.test(content)) return 'relationship:spouse'
   if (/\b(?:meu\s+)?marido\b/iu.test(content)) return 'relationship:husband'
+  if (/\b(?:o|meu) projeto fictício\b/iu.test(content)) return 'project:fictional-project'
   const project = content.match(/\b(?:sistema|projeto)\s+(?:chamado|denominado)\s+([\p{L}\p{N}_-]+)/iu)?.[1]
   if (project) return `project:${slug(project)}`
   if (type === 'working_profile' && /\b(?:desenvolv|arquitetura|sistemas?|código|especifica)/iu.test(content)) return 'preference:product-development'

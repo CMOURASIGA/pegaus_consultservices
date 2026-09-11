@@ -19,7 +19,7 @@ export class SupabaseConversationContextSource implements ConversationContextSou
     const continuation = /\b(?:isso|essa|esse|anterior|continu|então|porque|por que|lembra)\b/iu.test(query)
     return (data as Row[])
       .filter((row) => Boolean(row.content) && row.content!.trim() !== query.trim())
-      .map((row, index) => ({ row, score: [...terms(row.content ?? '')].filter((term) => queryTerms.has(term)).length * 2 + (continuation ? Math.max(0, 1 - index * 0.1) : 0) }))
+      .map((row, index) => ({ row, score: [...terms(row.content ?? '')].filter((term) => queryTerms.has(term)).length * 2 + (continuation ? Math.max(0, 1 - index * 0.1) : 0) + (row.role === 'user' ? 1.5 : 0) }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score || Date.parse(b.row.created_at) - Date.parse(a.row.created_at))
       .slice(0, Math.max(0, Math.min(limit, 6)))
