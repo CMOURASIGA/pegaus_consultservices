@@ -14,9 +14,11 @@ Esta implementação entrega memória seletiva e contexto mínimo. A integraçã
 
 O Core permanece independente de React, Next.js e Supabase. O adapter utiliza o cliente autenticado do usuário e as policies RLS de ownership existentes. Nenhuma service role é enviada ao browser.
 
-## Curadoria inicial
+## Curadoria e continuidade E2E
 
-Ordens explícitas como `lembre que`, `guarde` e `memorize` têm prioridade e são persistidas com autoridade `explicit_user`, confiança e relevância máximas. Preferências e decisões com sinais determinísticos podem ser registradas como inferidas, com confiança inferior e indicação visível de origem. Conversa comum não vira memória.
+Ordens explícitas como `lembre que`, `guarde`, `memorize` e `lembre disso` têm prioridade e são persistidas com autoridade `explicit_user`, confiança e relevância máximas. A referência `lembre disso` só é aceita quando existe uma mensagem anterior do próprio owner na conversa. Preferências, relações pessoais estáveis e projetos com sinais determinísticos podem ser registrados como inferidos, com confiança inferior e indicação visível de origem. Conversa comum não vira memória.
+
+Títulos semânticos estáveis, como `relationship:spouse`, `project:7grafica` e `preference:product-development`, permitem detectar duplicidade e atualizar o fato atual sem criar duas verdades ativas. A atualização cria nova versão e nova entrada de origem antes de substituir o estado corrente.
 
 Conteúdo com sinais ou formatos de credencial é descartado antes da persistência. Essa proteção é adicional e não substitui o Secret Manager.
 
@@ -26,15 +28,17 @@ Conteúdo com sinais ou formatos de credencial é descartado antes da persistên
 
 ## Retrieval e Context Budget
 
-O Context Engine consulta somente memórias ativas do proprietário, limita candidatos, calcula ranking por termos, relevância, confiança, autoridade e tipo, e aplica limites de itens, tamanho por item e tamanho total. Memórias sem relevância para a solicitação não são enviadas ao Router.
+O Context Engine consulta somente memórias ativas do proprietário, limita candidatos, calcula ranking por termos, aliases, escopo, relevância, confiança, autoridade e tipo, e aplica limites de itens, tamanho por item e tamanho total. Memórias sem relevância para a solicitação não são enviadas ao Router. O histórico da conversa atual é consultado separadamente, filtrado pelo mesmo owner e conversation ID, e entra somente quando relevante ou quando a fala contém uma referência de continuidade.
 
-Cada item selecionado informa proveniência no formato `memory:<id>:<source-kind>`. A observabilidade registra apenas correlation ID, contagens, caracteres, fontes agregadas e truncamento, nunca o conteúdo da memória.
+Cada item selecionado informa proveniência no formato `memory:<id>:<source-kind>` e metadados de origem, data, atualização, autoridade e confiança. A observabilidade registra apenas correlation ID, contagens, caracteres, fontes agregadas, duração do retrieval, fontes degradadas e truncamento, nunca o conteúdo da memória.
+
+Falha isolada de memória, histórico ou documento degrada aquela fonte sem impedir uma resposta segura. A política do Core instrui o modelo a admitir ausência de informação, não inventar provenance e não afirmar persistência com base apenas no texto do usuário.
 
 Memória recuperada é contexto não executivo. Ela não concede permissão, não altera policy e não autoriza Tools. A resposta do modelo continua `untrusted` e com `executionAuthorization: none`.
 
 ## Limites deliberados
 
-- sem similaridade vetorial ou embeddings;
+- a infraestrutura pgvector, HNSW e `private.match_memories` existe, mas não há embeddings de memória gerados no ambiente atual; a recuperação ativa permanece lexical/relevância até uma escolha explícita de modelo, custo e política de embeddings;
 - sem resolução completa de entidades ou referências ambíguas;
 - Google Drive real continua dependente de OAuth e cofre server-side, embora o boundary do Knowledge Store já exista;
 - sem exclusão física de memória;

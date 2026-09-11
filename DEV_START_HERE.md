@@ -3,6 +3,8 @@
 ## Para o desenvolvedor
 Este repositório é SPEC-driven. Não iniciar implementação a partir de suposições ou apenas do README. As decisões de produto, arquitetura, segurança, frontend, memória, voz, autonomia e infraestrutura estão documentadas e são requisitos.
 
+O estado executável mais recente deve ser consultado primeiro em `docs/checkpoints/PROJECT_STATUS.md`. Em 2026-09-11, Context + Memory está tecnicamente pronto para validação humana, e integrações Google permanecem bloqueadas até o resultado desse E2E.
+
 ## Branch de especificação
 A documentação consolidada está sendo mantida em `docs/infrastructure-specs`. Antes do desenvolvimento, confirmar com Christian a branch/base oficial de implementação e não alterar produção sem autorização.
 
