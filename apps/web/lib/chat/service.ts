@@ -1,7 +1,8 @@
 import 'server-only'
 
-import { AiRouter, AiRouterError, FakeAiProvider, PegasusCore } from '@pegasus/core'
+import { AiRouter, AiRouterError, FakeAiProvider, OpenAiProvider, PegasusCore } from '@pegasus/core'
 import type { ContextPort, InteractionRequest, MemoryCurator, RouterConfig, RouterObserver } from '@pegasus/core'
+import { readServerConfig } from '@pegasus/config'
 import { logger } from '@pegasus/logging'
 import { AppError } from '@pegasus/shared'
 import type { ChatStore, SendChatInput, SendChatResult } from './types'
@@ -23,13 +24,28 @@ export function createChatCore(responseText = 'Recebi sua mensagem. O Pegasus es
   return new PegasusCore(new AiRouter(routerConfig, [new FakeAiProvider('pegasus-fake', { type: 'success', content: responseText, usage: { inputUnits: 0, outputUnits: 0, totalUnits: 0, unit: 'tokens' } })], observer), context)
 }
 
+export function createConfiguredChatCore(suppliedContext?: ContextPort) {
+  const config = readServerConfig()
+  if (config.PEGASUS_AI_PROVIDER !== 'openai') return { core: createChatCore(undefined, suppliedContext), allowPaidModels: false }
+  const model = {
+    provider: 'openai', model: config.PEGASUS_AI_MODEL, enabled: true,
+    capabilities: ['balanced'] as const, modalities: ['text'] as const,
+    quality: 3, latency: 3, priority: 1, requiresCredential: true,
+    pricing: { inputPerMillionUnits: 0.2, outputPerMillionUnits: 1.2 },
+  }
+  const observer: RouterObserver = { record(trace) { logger.info('chat.ai_route', { correlationId: trace.correlationId, durationMs: trace.durationMs, provider: trace.provider, model: trace.model, status: trace.status, usage: trace.usage, estimatedCostUsd: trace.estimatedCostUsd, fallback: trace.fallback, error: trace.error }) } }
+  const context: ContextPort = suppliedContext ?? { async assemble(request) { return { id: `context-${request.id}`, items: [] } } }
+  const router: RouterConfig = { models: [model], timeoutMs: config.AI_ROUTER_TIMEOUT_MS, retriesPerModel: config.AI_ROUTER_RETRIES_PER_MODEL, fallback: { enabled: false, maxModels: 1, allowPaid: false } }
+  return { core: new PegasusCore(new AiRouter(router, [new OpenAiProvider(config.OPENAI_API_KEY, config.PEGASUS_AI_MAX_OUTPUT_TOKENS)], observer), context), allowPaidModels: true }
+}
+
 function titleFrom(content: string) {
   const compact = content.replace(/\s+/g, ' ').trim()
   return compact.length > 56 ? `${compact.slice(0, 53)}...` : compact
 }
 
 export class ChatService {
-  constructor(private readonly store: ChatStore, private readonly core: Pick<PegasusCore, 'handle'> = createChatCore(), private readonly curator?: Pick<MemoryCurator, 'capture'>) {}
+  constructor(private readonly store: ChatStore, private readonly core: Pick<PegasusCore, 'handle'> = createChatCore(), private readonly curator?: Pick<MemoryCurator, 'capture'>, private readonly allowPaidModels = false) {}
 
   async send(input: SendChatInput): Promise<SendChatResult> {
     const content = input.content.trim()
@@ -43,7 +59,7 @@ export class ChatService {
     const userMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'user', content, correlationId, attachments: input.attachments })
     const curation = await this.curator?.capture({ ownerId: input.actorId, content, source: { kind: 'conversation', ref: conversation.id } })
     const hasImage = input.attachments?.some((item) => item.mediaType.startsWith('image/')) ?? false
-    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: false, signal: input.signal } }
+    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: this.allowPaidModels, signal: input.signal } }
     try {
       const result = await this.core.handle(request)
       const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: result.content, correlationId, provider: result.route.provider, model: result.route.model })

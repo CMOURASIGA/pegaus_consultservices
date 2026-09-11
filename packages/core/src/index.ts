@@ -4,6 +4,7 @@ import type { ComponentStatus, HealthComponent, HealthReport } from '@pegasus/sh
 export * from './contracts'
 export * from './ai-router'
 export * from './fake-provider'
+export * from './openai-provider'
 export * from './orchestrator'
 export * from './memory'
 export * from './context-engine'

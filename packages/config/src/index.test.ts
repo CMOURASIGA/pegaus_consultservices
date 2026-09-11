@@ -16,5 +16,13 @@ describe('server configuration', () => {
     expect(config.AI_ROUTER_FALLBACK_ENABLED).toBe(false)
     expect(config.AI_ROUTER_FALLBACK_ALLOW_PAID).toBe(false)
     expect(config.OPENAI_API_KEY).toBeUndefined()
+    expect(config.PEGASUS_AI_PROVIDER).toBe('fake')
+    expect(config.PEGASUS_AI_MODEL).toBe('gpt-5.6-luna')
+    expect(config.PEGASUS_AI_MAX_OUTPUT_TOKENS).toBe(800)
+  })
+  it('accepts an explicitly configured OpenAI model with a bounded output', () => {
+    const config = readServerConfig({ NODE_ENV: 'test', PEGASUS_AI_PROVIDER: 'openai', PEGASUS_AI_MODEL: 'gpt-test', PEGASUS_AI_MAX_OUTPUT_TOKENS: '400' })
+    expect(config).toMatchObject({ PEGASUS_AI_PROVIDER: 'openai', PEGASUS_AI_MODEL: 'gpt-test', PEGASUS_AI_MAX_OUTPUT_TOKENS: 400 })
+    expect(() => readServerConfig({ NODE_ENV: 'test', PEGASUS_AI_MAX_OUTPUT_TOKENS: '9000' })).toThrow(/Invalid server/)
   })
 })
