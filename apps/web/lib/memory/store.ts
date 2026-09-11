@@ -1,6 +1,6 @@
 import 'server-only'
 
-import type { MemoryRecord, MemoryRepository, NewMemory } from '@pegasus/core'
+import type { MemoryRecord, MemoryRepository, MemoryVersionRecord, NewMemory } from '@pegasus/core'
 import { AppError } from '@pegasus/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -52,6 +52,12 @@ export class SupabaseMemoryStore implements MemoryRepository {
     const { data, error } = await this.client.from('memories').select(fields).eq('owner_id', ownerId).eq('title', title).eq('status', 'active').order('updated_at', { ascending: false }).limit(1).maybeSingle()
     if (error) throw new AppError('MEMORY_READ_FAILED', 'Não foi possível consultar a memória.', 503)
     return data ? toMemory(data as MemoryRow) : null
+  }
+
+  async listVersions(ownerId: string, memoryId: string, limit: number): Promise<readonly MemoryVersionRecord[]> {
+    const { data, error } = await this.client.from('memory_versions').select('version_no, content, change_reason, created_at').eq('owner_id', ownerId).eq('memory_id', memoryId).order('version_no', { ascending: false }).limit(limit)
+    if (error) throw new AppError('MEMORY_READ_FAILED', 'Não foi possível consultar o histórico da memória.', 503)
+    return (data ?? []).map((row) => ({ versionNo: row.version_no, content: row.content, reason: row.change_reason ?? undefined, createdAt: row.created_at }))
   }
 
   async list(ownerId: string, limit = 100) {

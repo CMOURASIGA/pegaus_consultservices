@@ -8,6 +8,7 @@ const request = (content: string): InteractionRequest => ({ id: 'r1', correlatio
 
 class Repository implements MemoryRepository {
   constructor(readonly records: MemoryRecord[]) {}
+  listVersions?: MemoryRepository['listVersions']
   create(memory: NewMemory): Promise<MemoryRecord> { void memory; throw new Error('unused') }
   async listActive(ownerId: string, limit: number) { return this.records.filter((item) => item.ownerId === ownerId).slice(0, limit) }
   correct(): Promise<MemoryRecord> { throw new Error('unused') }
@@ -97,6 +98,22 @@ describe('ContextEngine', () => {
     const context = await new ContextEngine(new Repository([]), undefined, undefined, undefined, conversation).assemble({ ...request('Esse projeto já teve outro nome?'), conversationId: 'c1' })
     expect(context.items[0]?.provenance).toMatchObject({ authority: 'user_provided', confidence: 1, sourceRef: 'message:user-update' })
     expect(context.items[1]?.provenance).toMatchObject({ authority: 'assistant_generated', confidence: 0, sourceRef: 'message:assistant-echo' })
+  })
+
+  it('provides superseded values only as version history while keeping the current value authoritative', async () => {
+    const repository = new Repository([base({ id: 'project', title: 'project:fictional-project', content: 'O projeto fictício agora se chama ProjetoHorizonte.', type: 'project', source: { kind: 'conversation', ref: 'message:user-b' } })])
+    repository.listVersions = vi.fn(async () => [
+      { versionNo: 2, content: 'O projeto fictício agora se chama ProjetoHorizonte.', reason: 'Atualização pelo usuário', createdAt: '2026-01-02T00:00:00Z' },
+      { versionNo: 1, content: 'O projeto fictício se chama ProjetoAurora.', reason: 'Criação', createdAt: '2026-01-01T00:00:00Z' },
+    ])
+
+    const context = await new ContextEngine(repository).assemble(request('Esse projeto já teve outro nome?'))
+
+    expect(context.items).toHaveLength(1)
+    expect(context.items[0]?.value).toContain('valor atual: O projeto fictício agora se chama ProjetoHorizonte.')
+    expect(context.items[0]?.value).toContain('histórico versionado, não atual:')
+    expect(context.items[0]?.value).toContain('ProjetoAurora')
+    expect(context.items[0]?.provenance).toMatchObject({ sourceRef: 'message:user-b', authority: 'explicit_user' })
   })
 
   it('degrades without leaking data when a retrieval source fails', async () => {

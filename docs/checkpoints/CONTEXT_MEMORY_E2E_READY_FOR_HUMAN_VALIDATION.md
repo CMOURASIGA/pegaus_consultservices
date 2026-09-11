@@ -105,7 +105,7 @@ O trabalho deve parar neste checkpoint até o resultado de Christian.
 
 Durante a primeira validação humana, a alteração de `ProjetoAurora` para `ProjetoHorizonte` revelou que a frase de atualização não havia sido curada. O banco continha somente a memória inicial ativa; o novo valor existia apenas em uma mensagem do usuário e em respostas posteriores do assistente. Como o histórico não carregava autoridade explícita, o modelo atribuiu indevidamente a confirmação ao próprio texto gerado.
 
-A correção mantém uma única memória ativa por identidade estável do projeto fictício, preserva o valor anterior em `memory_versions` e registra a nova mensagem do proprietário em `memory_sources`. Fontes de histórico agora chegam ao Core como `user_provided` ou `assistant_generated`; conteúdo gerado pelo assistente possui confiança factual zero e não pode substituir provenance do proprietário. Novas memórias criadas pelo Chat referenciam o ID da mensagem do usuário, em vez de apenas o ID da conversa.
+A correção mantém uma única memória ativa por identidade estável do projeto fictício, preserva o valor anterior em `memory_versions` e registra a nova mensagem do proprietário em `memory_sources`. Versões anteriores podem ser recuperadas com limite e são rotuladas como histórico não atual. Fontes de histórico agora chegam ao Core como `user_provided` ou `assistant_generated`; conteúdo gerado pelo assistente possui confiança factual zero e não pode substituir provenance do proprietário. Novas memórias criadas pelo Chat referenciam o ID da mensagem do usuário, em vez de apenas o ID da conversa.
 
 O dado fictício utilizado na validação foi reparado sem exclusão e sem migration:
 
@@ -115,4 +115,4 @@ O dado fictício utilizado na validação foi reparado sem exclusão e sem migra
 - fonte da versão atual: mensagem do usuário que declarou a mudança;
 - resposta anterior do assistente: não utilizada como fonte factual.
 
-Após a correção, 113 testes em 27 arquivos, lint, typecheck, build, standalone smoke, dependency audit e secret scan foram aprovados. O teste humano de update/provenance precisa ser repetido em uma nova sequência de conversas antes de qualquer declaração de `MEMORY E2E VALIDATED`.
+Após a correção, 115 testes em 27 arquivos, lint, typecheck, build, standalone smoke, dependency audit e secret scan foram aprovados. O teste humano de update/provenance precisa ser repetido em uma nova sequência de conversas antes de qualquer declaração de `MEMORY E2E VALIDATED`.

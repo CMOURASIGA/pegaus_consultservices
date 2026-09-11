@@ -23,10 +23,18 @@ export type MemoryRecord = {
 
 export type NewMemory = Omit<MemoryRecord, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'lastUsedAt'>
 
+export type MemoryVersionRecord = {
+  versionNo: number
+  content: string
+  reason?: string
+  createdAt: string
+}
+
 export interface MemoryRepository {
   create(memory: NewMemory): Promise<MemoryRecord>
   listActive(ownerId: string, limit: number): Promise<readonly MemoryRecord[]>
   findActiveByTitle?(ownerId: string, title: string): Promise<MemoryRecord | null>
+  listVersions?(ownerId: string, memoryId: string, limit: number): Promise<readonly MemoryVersionRecord[]>
   correct(input: { ownerId: string; memoryId: string; content: string; reason: string; source?: { kind: string; ref?: string } }): Promise<MemoryRecord>
   archive(ownerId: string, memoryId: string): Promise<void>
   markUsed?(ownerId: string, memoryIds: readonly string[]): Promise<void>

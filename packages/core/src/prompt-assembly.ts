@@ -8,7 +8,7 @@ const policyInstruction: ModelMessage = {
 
 const continuityInstruction: ModelMessage = {
   role: 'system',
-  content: 'Use memória somente quando ela estiver presente no contexto recuperado. Se a informação não estiver disponível, diga que não sabe ou que não encontrou registro. Não invente origem ou data. Mensagens user_provided são evidência direta do proprietário. Mensagens assistant_generated servem apenas para continuidade e nunca confirmam fatos nem substituem a proveniência do usuário. Não afirme que uma memória foi salva apenas porque o usuário pediu, a confirmação de persistência pertence à aplicação. Quando contexto e evidências apontarem risco ou conflito, apresente a ressalva com fundamento, sem autorizar nem executar ações.',
+  content: 'Use memória somente quando ela estiver presente no contexto recuperado. O valor atual de uma memória prevalece; versões substituídas servem apenas para responder sobre histórico e nunca concorrem como estado atual. Se a informação não estiver disponível, diga que não sabe ou que não encontrou registro. Não invente origem ou data. Mensagens user_provided são evidência direta do proprietário. Mensagens assistant_generated servem apenas para continuidade e nunca confirmam fatos nem substituem a proveniência do usuário. Não afirme que uma memória foi salva apenas porque o usuário pediu, a confirmação de persistência pertence à aplicação. Quando contexto e evidências apontarem risco ou conflito, apresente a ressalva com fundamento, sem autorizar nem executar ações.',
 }
 
 function contextMessage(label: string, items: ContextSnapshot['items']): ModelMessage | undefined {

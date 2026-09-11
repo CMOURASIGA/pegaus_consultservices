@@ -16,6 +16,23 @@ describe('SupabaseMemoryStore', () => {
     ]))
   })
 
+  it('reads owner-scoped version history for contextual provenance', async () => {
+    const calls: Array<{ table: string; operation: string; column?: string; match?: unknown }> = []
+    const client = { from(table: string) { return {
+      select() { return {
+        eq(column: string, match: unknown) { calls.push({ table, operation: 'eq', column, match }); return this },
+        order() { return this },
+        async limit() { return { data: [{ version_no: 2, content: 'ProjetoHorizonte', change_reason: 'Atualização', created_at: '2026-01-02T00:00:00Z' }], error: null } },
+      } },
+    } } } as unknown as SupabaseClient
+    const versions = await new SupabaseMemoryStore(client).listVersions('owner-a', 'm1', 5)
+    expect(versions).toEqual([{ versionNo: 2, content: 'ProjetoHorizonte', reason: 'Atualização', createdAt: '2026-01-02T00:00:00Z' }])
+    expect(calls).toEqual(expect.arrayContaining([
+      expect.objectContaining({ table: 'memory_versions', operation: 'eq', column: 'owner_id', match: 'owner-a' }),
+      expect.objectContaining({ table: 'memory_versions', operation: 'eq', column: 'memory_id', match: 'm1' }),
+    ]))
+  })
+
   it('writes a new version before updating current state and always filters owner', async () => {
     const calls: Array<{ table: string; operation: string; value?: unknown; column?: string; match?: unknown }> = []
     const chain = (table: string, terminal: () => unknown) => ({

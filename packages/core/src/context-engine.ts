@@ -51,7 +51,16 @@ export class ContextEngine implements ContextPort {
     let truncated = false
     for (const { memory } of ranked) {
       if (items.length >= this.budget.maxItems) { truncated = true; break }
-      const value = memory.content.slice(0, this.budget.maxItemCharacters)
+      const versions = this.memories.listVersions
+        ? await this.memories.listVersions(request.actorId, memory.id, 5).catch(() => { failedSources.push('memory_versions'); return [] as const })
+        : []
+      const priorVersions = versions
+        .filter((version) => version.content !== memory.content && !containsSecret(version.content))
+        .map((version) => `versão ${version.versionNo} substituída em ${version.createdAt}: ${version.content}`)
+      const contextualValue = priorVersions.length
+        ? `valor atual: ${memory.content}\nhistórico versionado, não atual:\n${priorVersions.join('\n')}`
+        : memory.content
+      const value = contextualValue.slice(0, this.budget.maxItemCharacters)
       if (characters + value.length > this.budget.maxCharacters) { truncated = true; continue }
       items.push({ source: `memory:${memory.id}:${memory.source.kind}`, classification: 'internal', value, kind: 'memory', trust: 'contextual', provenance: { sourceKind: memory.source.kind, sourceRef: memory.source.ref, recordedAt: memory.createdAt, updatedAt: memory.updatedAt, authority: memory.authority, confidence: memory.confidence } })
       usedIds.push(memory.id)
