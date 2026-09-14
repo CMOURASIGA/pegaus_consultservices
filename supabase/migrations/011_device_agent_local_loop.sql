@@ -198,7 +198,8 @@ begin
   for update;
   if not found then raise exception 'task_scope_invalid' using errcode='42501'; end if;
   if v_task.status<>p_from_status or v_task.state_version<>p_expected_version then
-    raise exception 'task_transition_conflict' using errcode='40001';
+    raise exception 'task_transition_conflict current_status=% expected_status=% current_version=% expected_version=%',
+      v_task.status, p_from_status, v_task.state_version, p_expected_version using errcode='40001';
   end if;
 
   update public.tasks as t set status=p_to_status,
