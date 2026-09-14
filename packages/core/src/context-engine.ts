@@ -12,7 +12,7 @@ export interface ConversationContextSource {
 }
 
 const defaultBudget: ContextBudget = { maxItems: 6, maxCharacters: 4_000, maxItemCharacters: 1_000 }
-const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na','nos','nas','projeto','sistema'])
+const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na','nos','nas'])
 const aliases: Record<string, readonly string[]> = { esposa: ['mulher', 'conjuge'], marido: ['homem', 'conjuge'], grafica: ['7grafica'], projeto: ['sistema'], sistema: ['projeto'] }
 
 function terms(value: string) {

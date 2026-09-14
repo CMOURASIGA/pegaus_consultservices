@@ -58,7 +58,6 @@ describe('MemoryCurator', () => {
       content: 'Estou trabalhando em um projeto fictício chamado ProjetoAtlas. Nesse projeto, segurança é prioridade e decidimos que nenhuma credencial privilegiada pode ficar no frontend. Quero também que você me alerte quando eu estiver propondo uma decisão ruim, mesmo que eu não pergunte.',
       source: { kind: 'user_message', ref: 'message:atlas' },
     })
-
     expect(result).toMatchObject({ action: 'persist', memories: [
       expect.objectContaining({ type: 'project', title: 'project:projetoatlas' }),
       expect.objectContaining({ type: 'decision', title: expect.stringContaining('decision:project:projetoatlas') }),

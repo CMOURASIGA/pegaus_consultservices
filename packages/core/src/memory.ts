@@ -76,7 +76,7 @@ export function isDeicticMemoryRequest(content: string) {
 }
 
 function inferType(content: string): MemoryType {
-  if (/\b(?:prefiro|preferência|quero(?: também)? que você|sempre use|nunca use)/iu.test(content)) return 'working_profile'
+  if (/(?:\b(?:prefiro|preferência|sempre use|nunca use)\b|\bquero(?: também)? que você)/iu.test(content)) return 'working_profile'
   if (/\b(?:decidi|decidimos|decisão)\b/iu.test(content)) return 'decision'
   if (/\b(?:projeto|sistema|sprint|cliente)\b/iu.test(content)) return 'project'
   if (/\b(?:pessoa|equipe|empresa|organização|esposa|marido|filho|filha|sócio|sócia)\b/iu.test(content)) return 'relationship'
@@ -155,7 +155,7 @@ export class MemoryCurator {
     for (const segment of segments) {
       if (projectName(segment)) selected.push(segment)
       if (/\b(?:eu decidi|decidimos que|a decisão é)\b/iu.test(segment)) selected.push(`[Projeto ${relatedProject}] ${segment}`)
-      if (/\b(?:eu prefiro|minha preferência|quero(?: também)? que você|sempre use|nunca use)\b/iu.test(segment)) selected.push(`[Projeto ${relatedProject}] ${segment}`)
+      if (/(?:\b(?:eu prefiro|minha preferência|sempre use|nunca use)\b|\bquero(?: também)? que você)/iu.test(segment)) selected.push(`[Projeto ${relatedProject}] ${segment}`)
     }
     return [...new Set(selected.length ? selected : [content])]
   }
