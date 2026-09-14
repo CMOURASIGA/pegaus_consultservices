@@ -175,6 +175,9 @@ async function schemaAndPrivileges() {
 async function taskConcurrency() {
   const call = () => query("select (public.transition_task($1,$2,'running','waiting_device',0,null,null,null)).*", [ids.taskA,ids.ownerA]);
   const results = await Promise.allSettled([call(), call()]);
+  process.stdout.write("Task concurrency outcomes: " + JSON.stringify(results.map(result =>
+    result.status === "fulfilled" ? { status: result.status } : { status: result.status, code: result.reason.code, message: result.reason.message }
+  )) + "\\n");
   ok(results.filter(r => r.status === "fulfilled").length === 1, "only one concurrent Task transition wins");
   ok(results.filter(r => r.status === "rejected" && /task_transition_conflict/.test(r.reason.message)).length === 1,
     "losing Task transition reports optimistic concurrency conflict");
