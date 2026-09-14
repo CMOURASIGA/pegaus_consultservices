@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react'
 import type { ChatConversation, ChatMessage, SendChatResult } from '../../lib/chat/types'
 import { ALLOWED_ATTACHMENT_TYPES, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from '../../lib/chat/attachment-limits'
+import { composerHeight, isNearConversationEnd } from '../../lib/chat/viewport'
 import { BrowserTextToSpeech, BrowserVoiceCapture, ServerSpeechToText, mapMicrophoneError } from '../../lib/voice/browser'
 import type { VoiceState } from '../../lib/voice/types'
 
@@ -35,11 +36,22 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const finishingVoice = useRef(false)
   const voiceOutput = useRef<BrowserTextToSpeech | null>(null)
   const messageRegionRef = useRef<HTMLDivElement | null>(null)
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const shouldFollowMessages = useRef(true)
 
   useEffect(() => {
     const region = messageRegionRef.current
-    if (region) region.scrollTo({ top: region.scrollHeight, behavior: status === 'processing' ? 'smooth' : 'auto' })
+    if (region && shouldFollowMessages.current) {
+      region.scrollTo({ top: region.scrollHeight, behavior: status === 'processing' ? 'smooth' : 'auto' })
+    }
   }, [messages, status])
+  useEffect(() => {
+    const input = composerInputRef.current
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${composerHeight(input.scrollHeight)}px`
+    input.style.overflowY = input.scrollHeight > 160 ? 'auto' : 'hidden'
+  }, [content])
   useEffect(() => () => {
     voiceController.current?.abort()
     voiceCapture.current?.cancel()
@@ -49,6 +61,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   function newConversation() {
     controller.current?.abort()
     cancelVoice(false)
+    shouldFollowMessages.current = true
     setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setMemoryNotice(''); setStatus('ready'); setSidebarOpen(false)
     window.history.replaceState({}, '', '/app')
   }
@@ -57,6 +70,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     const outgoing = value.trim()
     if (!outgoing || status === 'processing') return
     const selectedFiles = files
+    shouldFollowMessages.current = true
     const optimistic: ChatMessage = { id: `pending-${crypto.randomUUID()}`, conversationId: conversation?.id ?? 'pending', role: 'user', content: outgoing, createdAt: new Date().toISOString(), attachments: selectedFiles.map((file, index) => ({ id: `pending-${index}`, name: file.name, mediaType: file.type, size: file.size, classification: 'internal' })) }
     setMessages((current) => [...current, optimistic]); setContent(''); setRetryContent(outgoing); setError(''); setStatus('processing')
     const abortController = new AbortController(); controller.current = abortController
@@ -89,6 +103,12 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   function submit(event: FormEvent) { event.preventDefault(); void sendMessage(content) }
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }
   function cancel() { controller.current?.abort() }
+
+  function trackMessageScroll() {
+    const region = messageRegionRef.current
+    if (!region) return
+    shouldFollowMessages.current = isNearConversationEnd(region)
+  }
 
   function speakAssistant(text: string) {
     const output = voiceOutput.current ?? new BrowserTextToSpeech()
@@ -179,21 +199,23 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
           <form action="/auth/logout" method="post"><button className="link-button compact" type="submit">Sair</button></form>
         </header>
 
-        <div className="message-region" ref={messageRegionRef} aria-live="polite" aria-busy={status === 'processing'}>
-          {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName.toLocaleUpperCase('pt-BR')}.</h1><p>Como posso ajudar agora?</p><small>Este ambiente usa respostas locais de teste e não gera custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span>{message.attachments?.length ? <div className="message-attachments">{message.attachments.map((item) => <span key={item.id}>▧ {item.name}</span>)}</div> : null}<p>{message.content}</p></article>)}{memoryNotice ? <div className="chat-notice memory" role="status"><span>{memoryNotice}</span><a href="/memory">Revisar memória</a></div> : null}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está preparando a resposta...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}</div>}
-        </div>
+        <div className="conversation-workspace">
+          <div className="message-region" ref={messageRegionRef} onScroll={trackMessageScroll} aria-live="polite" aria-busy={status === 'processing'}>
+            {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName.toLocaleUpperCase('pt-BR')}.</h1><p>Como posso ajudar agora?</p><small>Este ambiente usa respostas locais de teste e não gera custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span>{message.attachments?.length ? <div className="message-attachments">{message.attachments.map((item) => <span key={item.id}>▧ {item.name}</span>)}</div> : null}<p>{message.content}</p></article>)}{memoryNotice ? <div className="chat-notice memory" role="status"><span>{memoryNotice}</span><a href="/memory">Revisar memória</a></div> : null}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está preparando a resposta...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}</div>}
+          </div>
 
-        <div className="composer-wrap">
-          <form className="chat-composer" onSubmit={submit}>
+          <div className="composer-wrap">
+            <form className="chat-composer" onSubmit={submit}>
              <label className="future-action attachment-action" aria-label="Anexar arquivos" title="Adicionar imagem ou documento">＋<input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf,text/plain,text/markdown,.md" onChange={selectFiles} disabled={status === 'processing'} /></label>
             <label className="sr-only" htmlFor="message">Mensagem para o Pegasus</label>
-            <textarea id="message" value={content} onChange={(event) => setContent(event.target.value)} onKeyDown={keyDown} placeholder="Converse com o Pegasus" rows={1} maxLength={12000} disabled={status === 'processing'} />
+            <textarea ref={composerInputRef} id="message" value={content} onChange={(event) => setContent(event.target.value)} onKeyDown={keyDown} placeholder="Converse com o Pegasus" rows={1} maxLength={12000} disabled={status === 'processing'} />
             <button className={`future-action voice-action ${voiceState === 'listening' ? 'is-listening' : ''} ${voiceState === 'speaking' ? 'is-speaking' : ''}`} type="button" onClick={toggleVoice} disabled={status === 'processing' || voiceState === 'processing' || voiceState === 'requesting_permission'} aria-label={voiceState === 'listening' ? 'Concluir gravação de voz' : voiceState === 'speaking' ? 'Interromper resposta e falar' : 'Iniciar mensagem de voz'} aria-pressed={voiceState === 'listening'} title={voiceState === 'listening' ? 'Concluir gravação' : 'Falar com o Pegasus'}>{voiceState === 'listening' ? '■' : '●'}</button>
             {status === 'processing' ? <button className="cancel-button" type="button" onClick={cancel}>Cancelar</button> : <button className="send-button" type="submit" disabled={!content.trim()} aria-label="Enviar mensagem">Enviar</button>}
-          </form>
-          {files.length ? <div className="selected-files">{files.map((file, index) => <span key={`${file.name}-${file.size}`}>▧ {file.name}<button type="button" aria-label={`Remover ${file.name}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button></span>)}</div> : null}
-          {voiceMessage ? <div className={`voice-feedback ${voiceState}`} role="status"><span>{voiceMessage}</span>{voiceState === 'listening' || voiceState === 'speaking' ? <button type="button" onClick={() => cancelVoice()}>Cancelar</button> : null}</div> : null}
-          <p className="composer-hint">Enter envia, Shift + Enter cria uma nova linha.</p>
+            </form>
+            {files.length ? <div className="selected-files">{files.map((file, index) => <span key={`${file.name}-${file.size}`}>▧ {file.name}<button type="button" aria-label={`Remover ${file.name}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}>×</button></span>)}</div> : null}
+            {voiceMessage ? <div className={`voice-feedback ${voiceState}`} role="status"><span>{voiceMessage}</span>{voiceState === 'listening' || voiceState === 'speaking' ? <button type="button" onClick={() => cancelVoice()}>Cancelar</button> : null}</div> : null}
+            <p className="composer-hint">Enter envia, Shift + Enter cria uma nova linha.</p>
+          </div>
         </div>
       </section>
     </main>
