@@ -193,6 +193,14 @@ begin
     where c.task_id=p_task_id and c.owner_id=p_owner_id and r.status='completed'
   ) then raise exception 'validated_result_required' using errcode='23514'; end if;
 
+  select * into v_task from public.tasks
+  where id=p_task_id and owner_id=p_owner_id
+  for update;
+  if not found then raise exception 'task_scope_invalid' using errcode='42501'; end if;
+  if v_task.status<>p_from_status or v_task.state_version<>p_expected_version then
+    raise exception 'task_transition_conflict' using errcode='40001';
+  end if;
+
   update public.tasks as t set status=p_to_status,
     state_version=t.state_version+1,
     progress=coalesce(p_progress, t.progress),
@@ -201,10 +209,8 @@ begin
     started_at=case when p_to_status='running' then coalesce(t.started_at, now()) else t.started_at end,
     completed_at=case when p_to_status in ('completed','partially_completed','failed','cancelled','expired') then now() else t.completed_at end,
     updated_at=now()
-  where t.id=p_task_id and t.owner_id=p_owner_id and t.status=p_from_status
-    and t.state_version=p_expected_version
+  where t.id=p_task_id and t.owner_id=p_owner_id
   returning t.* into v_task;
-  if not found then raise exception 'task_transition_conflict' using errcode='40001'; end if;
   return v_task;
 end $$;
 
