@@ -181,10 +181,17 @@ begin
     (p_from_status='planning' and p_to_status in ('queued','cancelled','failed')) or
     (p_from_status='queued' and p_to_status in ('running','waiting_device','cancelled','failed','expired')) or
     (p_from_status='running' and p_to_status in ('waiting_approval','waiting_device','paused','completed','partially_completed','failed','cancelled')) or
+    (p_from_status='waiting_external' and p_to_status in ('queued','running','cancelled','failed','expired')) or
     (p_from_status='waiting_approval' and p_to_status in ('queued','running','cancelled','failed','expired')) or
     (p_from_status='waiting_device' and p_to_status in ('queued','running','cancelled','failed','expired')) or
     (p_from_status='paused' and p_to_status in ('queued','cancelled'))
   ) then raise exception 'invalid_task_transition' using errcode='22023'; end if;
+
+  if p_to_status='completed' and not exists (
+    select 1 from public.device_commands c
+    join public.device_command_results r on r.command_id=c.id
+    where c.task_id=p_task_id and c.owner_id=p_owner_id and r.status='completed'
+  ) then raise exception 'validated_result_required' using errcode='23514'; end if;
 
   update public.tasks set status=p_to_status,
     state_version=state_version+1,
@@ -200,20 +207,169 @@ begin
   return v_task;
 end $$;
 
-create or replace function public.consume_approval(
-  p_approval_id uuid, p_owner_id uuid, p_action_fingerprint text
+-- Registered operation. Model text can never create a new operation.
+insert into public.tools(tool_key,name,description,risk_level,status)
+values ('device.filesystem','Device filesystem','Allowlisted device filesystem operations','medium','active')
+on conflict (tool_key) do update set name=excluded.name, description=excluded.description,
+  risk_level=excluded.risk_level, status=excluded.status, updated_at=now();
+
+insert into public.tool_capabilities(tool_id,capability_key,operation,approval_level,metadata)
+select id,'filesystem.list','filesystem.list','approval','{"protocolVersion":1,"structuredOnly":true}'::jsonb
+from public.tools where tool_key='device.filesystem'
+on conflict (tool_id,capability_key,operation) do update
+set approval_level=excluded.approval_level, metadata=excluded.metadata;
+
+alter table public.device_capability_grants
+  add constraint device_capability_grants_expiry_check
+  check (expires_at is null or expires_at > granted_at);
+alter table public.device_commands
+  add constraint device_commands_expiry_check check (expires_at > created_at);
+
+create or replace function public.request_device_action_approval(
+  p_owner_id uuid, p_task_id uuid, p_device_id uuid, p_capability text,
+  p_target text, p_action_type text, p_action_payload jsonb,
+  p_action_fingerprint text, p_approval_level text, p_risk_level text,
+  p_expires_at timestamptz, p_correlation_id uuid
+) returns public.approvals
+language plpgsql security definer set search_path = public
+as $$
+declare v_item_id uuid; v_approval public.approvals;
+begin
+  if p_expires_at <= now() then raise exception 'approval_expiry_invalid' using errcode='22023'; end if;
+  if not exists(select 1 from public.tasks where id=p_task_id and owner_id=p_owner_id) or
+     not exists(select 1 from public.devices where id=p_device_id and owner_id=p_owner_id and status<>'revoked') then
+    raise exception 'approval_scope_invalid' using errcode='42501';
+  end if;
+  if not exists(
+    select 1 from public.tool_capabilities tc join public.tools t on t.id=tc.tool_id
+    where tc.capability_key=p_capability and tc.operation=p_action_type and t.status='active'
+  ) then raise exception 'operation_not_registered' using errcode='42501'; end if;
+
+  insert into public.decision_inbox_items(owner_id,task_id,title,description,priority,risk_level,recommended_action)
+  values(p_owner_id,p_task_id,'Aprovação de ação no dispositivo',
+    'Revise dispositivo, capability, destino e parâmetros antes de aprovar.',
+    case when p_risk_level in ('high','critical') then 'high' else 'normal' end,
+    p_risk_level,'approve_or_reject') returning id into v_item_id;
+
+  insert into public.approvals(owner_id,decision_item_id,task_id,device_id,capability,target,
+    action_type,action_payload,action_fingerprint,approval_level,expires_at)
+  values(p_owner_id,v_item_id,p_task_id,p_device_id,p_capability,p_target,p_action_type,
+    p_action_payload,p_action_fingerprint,p_approval_level,p_expires_at)
+  returning * into v_approval;
+
+  insert into public.audit_events(owner_id,actor_type,action,target_type,target_ref,outcome,
+    risk_level,correlation_id,metadata)
+  values(p_owner_id,'system','approval.requested','approval',v_approval.id::text,'success',
+    case when p_risk_level in ('high','critical') then 'important' else 'attention' end,
+    p_correlation_id,jsonb_build_object('taskId',p_task_id,'deviceId',p_device_id,'capability',p_capability));
+  return v_approval;
+end $$;
+
+create or replace function public.decide_device_action_approval(
+  p_approval_id uuid, p_owner_id uuid, p_decision text
 ) returns public.approvals
 language plpgsql security definer set search_path = public
 as $$
 declare v_approval public.approvals;
 begin
-  update public.approvals set status='consumed', consumed_at=now()
-  where id=p_approval_id and owner_id=p_owner_id and status='approved'
-    and action_fingerprint=p_action_fingerprint
+  if p_decision not in ('approved','rejected') then raise exception 'invalid_approval_decision' using errcode='22023'; end if;
+  update public.approvals set status=p_decision,
+    approved_at=case when p_decision='approved' then now() else approved_at end
+  where id=p_approval_id and owner_id=p_owner_id and status='pending'
     and (expires_at is null or expires_at>now())
   returning * into v_approval;
-  if not found then raise exception 'approval_not_consumable' using errcode='42501'; end if;
+  if not found then raise exception 'approval_not_decidable' using errcode='42501'; end if;
+  update public.decision_inbox_items set status=p_decision, resolved_at=now()
+  where id=v_approval.decision_item_id and owner_id=p_owner_id;
+  insert into public.approval_events(owner_id,approval_id,event_type,actor_type)
+  values(p_owner_id,p_approval_id,p_decision,'owner');
   return v_approval;
+end $$;
+
+create or replace function public.revoke_device_action_approval(
+  p_approval_id uuid, p_owner_id uuid
+) returns public.approvals
+language plpgsql security definer set search_path = public
+as $$
+declare v_approval public.approvals;
+begin
+  update public.approvals set status='revoked'
+  where id=p_approval_id and owner_id=p_owner_id and status in ('pending','approved')
+  returning * into v_approval;
+  if not found then raise exception 'approval_not_revocable' using errcode='42501'; end if;
+  insert into public.approval_events(owner_id,approval_id,event_type,actor_type)
+  values(p_owner_id,p_approval_id,'revoked','owner');
+  return v_approval;
+end $$;
+
+create or replace function public.create_authorized_device_command(
+  p_owner_id uuid, p_task_id uuid, p_device_id uuid, p_approval_id uuid,
+  p_capability text, p_operation text, p_target text, p_parameters jsonb,
+  p_action_fingerprint text, p_idempotency_key text, p_command_nonce_hash text,
+  p_expires_at timestamptz, p_correlation_id uuid
+) returns table(command jsonb, created boolean)
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_approval public.approvals; v_command public.device_commands;
+  v_approval_level text; v_existing public.device_commands;
+begin
+  if p_expires_at<=now() then raise exception 'command_expired' using errcode='22023'; end if;
+  select tc.approval_level into v_approval_level
+  from public.tool_capabilities tc join public.tools t on t.id=tc.tool_id
+  where tc.capability_key=p_capability and tc.operation=p_operation and t.status='active';
+  if not found then raise exception 'operation_not_registered' using errcode='42501'; end if;
+
+  if not exists(select 1 from public.tasks where id=p_task_id and owner_id=p_owner_id
+    and status in ('queued','running','waiting_approval','waiting_device')) then
+    raise exception 'task_not_dispatchable' using errcode='42501'; end if;
+  if not exists(select 1 from public.devices where id=p_device_id and owner_id=p_owner_id
+    and status<>'revoked' and revoked_at is null and capabilities ? p_capability) then
+    raise exception 'device_not_capable' using errcode='42501'; end if;
+  if not exists(select 1 from public.device_capability_grants where owner_id=p_owner_id
+    and device_id=p_device_id and capability=p_capability and status='active'
+    and (expires_at is null or expires_at>now())) then
+    raise exception 'capability_not_granted' using errcode='42501'; end if;
+
+  select * into v_existing from public.device_commands
+  where owner_id=p_owner_id and idempotency_key=p_idempotency_key;
+  if found then
+    if v_existing.action_fingerprint<>p_action_fingerprint then
+      raise exception 'idempotency_fingerprint_conflict' using errcode='23505';
+    end if;
+    return query select to_jsonb(v_existing),false; return;
+  end if;
+
+  if v_approval_level<>'none' then
+    select * into v_approval from public.approvals
+    where id=p_approval_id and owner_id=p_owner_id and task_id=p_task_id
+      and device_id=p_device_id and capability=p_capability and target=p_target
+      and action_type=p_operation and action_payload=p_parameters
+      and action_fingerprint=p_action_fingerprint and status='approved'
+      and (expires_at is null or expires_at>now())
+    for update;
+    if not found then raise exception 'approval_not_consumable' using errcode='42501'; end if;
+    update public.approvals set status='consumed',consumed_at=now() where id=v_approval.id;
+    insert into public.approval_events(owner_id,approval_id,event_type,actor_type)
+    values(p_owner_id,v_approval.id,'consumed','system');
+  elsif p_approval_id is not null then
+    raise exception 'unexpected_approval' using errcode='22023';
+  end if;
+
+  insert into public.device_commands(owner_id,task_id,device_id,approval_id,idempotency_key,
+    capability,operation,target,parameters,action_fingerprint,command_nonce_hash,
+    expires_at,correlation_id)
+  values(p_owner_id,p_task_id,p_device_id,p_approval_id,p_idempotency_key,p_capability,
+    p_operation,p_target,p_parameters,p_action_fingerprint,p_command_nonce_hash,
+    p_expires_at,p_correlation_id)
+  returning * into v_command;
+
+  insert into public.audit_events(owner_id,actor_type,action,target_type,target_ref,outcome,
+    risk_level,correlation_id,metadata)
+  values(p_owner_id,'system','device.command.authorized','device_command',v_command.id::text,
+    'success','attention',p_correlation_id,
+    jsonb_build_object('taskId',p_task_id,'deviceId',p_device_id,'capability',p_capability));
+  return query select to_jsonb(v_command),true;
 end $$;
 
 create or replace function public.acquire_device_command_lease(
@@ -226,30 +382,35 @@ begin
   if p_lease_seconds < 5 or p_lease_seconds > 120 then raise exception 'invalid_lease_duration'; end if;
   select * into v_command from public.device_commands
   where device_id=p_device_id and expires_at>now() and available_at<=now()
+    and attempt_count<max_attempts
     and (status='queued' or (status='leased' and lease_expires_at<=now()))
   order by created_at for update skip locked limit 1;
   if not found then return null; end if;
   if not exists (
-    select 1 from public.devices d
-    join public.device_capability_grants g on g.device_id=d.id
+    select 1 from public.devices d join public.device_capability_grants g on g.device_id=d.id
     where d.id=p_device_id and d.status='online' and d.revoked_at is null
-      and g.capability=v_command.capability and g.status='active'
+      and g.owner_id=d.owner_id and g.capability=v_command.capability and g.status='active'
       and (g.expires_at is null or g.expires_at>now())
   ) then return null; end if;
-  update public.device_commands set status='leased', attempt_count=attempt_count+1,
-    lease_token_hash=p_lease_token_hash,
-    lease_expires_at=now()+make_interval(secs=>p_lease_seconds)
+  update public.device_commands set status='leased',attempt_count=attempt_count+1,
+    lease_token_hash=p_lease_token_hash,lease_expires_at=now()+make_interval(secs=>p_lease_seconds)
   where id=v_command.id returning * into v_command;
   insert into public.device_execution_attempts(owner_id,command_id,device_id,attempt_no,lease_token_hash)
   values(v_command.owner_id,v_command.id,v_command.device_id,v_command.attempt_count,p_lease_token_hash);
   return v_command;
 end $$;
 
-revoke all on function public.transition_task(uuid,uuid,text,text,bigint,numeric,text,text) from public, anon, authenticated;
-revoke all on function public.consume_approval(uuid,uuid,text) from public, anon, authenticated;
-revoke all on function public.acquire_device_command_lease(uuid,text,integer) from public, anon, authenticated;
+revoke all on function public.transition_task(uuid,uuid,text,text,bigint,numeric,text,text) from public,anon,authenticated;
+revoke all on function public.request_device_action_approval(uuid,uuid,uuid,text,text,text,jsonb,text,text,text,timestamptz,uuid) from public,anon,authenticated;
+revoke all on function public.decide_device_action_approval(uuid,uuid,text) from public,anon,authenticated;
+revoke all on function public.revoke_device_action_approval(uuid,uuid) from public,anon,authenticated;
+revoke all on function public.create_authorized_device_command(uuid,uuid,uuid,uuid,text,text,text,jsonb,text,text,text,timestamptz,uuid) from public,anon,authenticated;
+revoke all on function public.acquire_device_command_lease(uuid,text,integer) from public,anon,authenticated;
 grant execute on function public.transition_task(uuid,uuid,text,text,bigint,numeric,text,text) to service_role;
-grant execute on function public.consume_approval(uuid,uuid,text) to service_role;
+grant execute on function public.request_device_action_approval(uuid,uuid,uuid,text,text,text,jsonb,text,text,text,timestamptz,uuid) to service_role;
+grant execute on function public.decide_device_action_approval(uuid,uuid,text) to service_role;
+grant execute on function public.revoke_device_action_approval(uuid,uuid) to service_role;
+grant execute on function public.create_authorized_device_command(uuid,uuid,uuid,uuid,text,text,text,jsonb,text,text,text,timestamptz,uuid) to service_role;
 grant execute on function public.acquire_device_command_lease(uuid,text,integer) to service_role;
 
 commit;

@@ -145,6 +145,20 @@ export class TaskRuntime {
     })
   }
 
+  fail(task: TaskRecord, errorSummary: string, correlationId: string) {
+    return this.transition({
+      taskId: task.id, ownerId: task.ownerId, from: task.status,
+      to: 'failed', expectedVersion: task.stateVersion, errorSummary, correlationId,
+    })
+  }
+
+  expire(task: TaskRecord, correlationId: string) {
+    return this.transition({
+      taskId: task.id, ownerId: task.ownerId, from: task.status,
+      to: 'expired', expectedVersion: task.stateVersion, correlationId,
+    })
+  }
+
   complete(task: TaskRecord, resultSummary: string, correlationId: string) {
     return this.transition({
       taskId: task.id, ownerId: task.ownerId, from: task.status,

@@ -33,3 +33,4 @@ export async function buildHealthReport(fetcher: typeof fetch = fetch): Promise<
 }
 
 export * from './task-runtime'
+export * from './authorization-pipeline'
