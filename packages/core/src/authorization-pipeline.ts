@@ -153,7 +153,7 @@ export class AuthorizationPipeline {
   > {
     const evaluation = this.guard.evaluate(input.action, input.context)
     if (evaluation.decision === 'reject' || (evaluation.decision === 'unknown' && evaluation.reason !== 'device_offline')) {
-      return { status: evaluation.decision, evaluation }
+      return { status: evaluation.decision === 'reject' ? 'rejected' : 'unknown', evaluation }
     }
     if (evaluation.reason === 'device_offline') {
       await this.taskRuntime.waitForDevice(input.task, input.action.correlationId)
