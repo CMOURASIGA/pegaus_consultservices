@@ -1,0 +1,43 @@
+name: Migration Preflight
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/migration-preflight.mjs"
+      - ".github/workflows/migration-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Install pinned PostgreSQL test driver without changing lockfile
+        run: npm install --no-save --package-lock=false pg@8.16.3
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.39.2
+      - name: Start disposable Supabase
+        run: |
+          supabase init --force
+          supabase start
+      - name: Rebuild disposable schema from repository migrations
+        run: supabase db reset
+      - name: Run grants, RLS, atomicity and concurrency preflight
+        env:
+          PREFLIGHT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: node scripts/migration-preflight.mjs
+      - name: Capture local service status on failure
+        if: failure()
+        run: supabase status || true
