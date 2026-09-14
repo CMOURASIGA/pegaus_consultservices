@@ -12,7 +12,7 @@ export interface ConversationContextSource {
 }
 
 const defaultBudget: ContextBudget = { maxItems: 6, maxCharacters: 4_000, maxItemCharacters: 1_000 }
-const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na','nos','nas'])
+const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na','nos','nas','projeto','sistema'])
 const aliases: Record<string, readonly string[]> = { esposa: ['mulher', 'conjuge'], marido: ['homem', 'conjuge'], grafica: ['7grafica'], projeto: ['sistema'], sistema: ['projeto'] }
 
 function terms(value: string) {
@@ -26,7 +26,7 @@ function score(memory: MemoryRecord, queryTerms: Set<string>, query: string) {
   for (const term of queryTerms) if (memoryTerms.has(term)) overlap += 1
   const authority = memory.authority === 'explicit_user' ? 0.25 : 0
   const profile = memory.type === 'working_profile' ? 0.12 : 0
-  const professionalProfile = memory.type === 'working_profile' && memory.scope === 'professional' && /\b(?:projeto|sistema|arquitetura|desenvolv|decisão|decidir|implementar)\b/iu.test(query) ? 1.1 : 0
+  const professionalProfile = memory.type === 'working_profile' && memory.scope === 'professional' && memory.title === 'preference:product-development' && /\b(?:projeto|sistema|arquitetura|desenvolv|decisão|decidir|implementar)\b/iu.test(query) ? 1.1 : 0
   const provenanceFollowUp = /\b(?:por que você sabe|quando (?:eu )?(?:disse|falei)|de onde você sabe|quem (?:informou|forneceu|disse))\b/iu.test(query) && memory.lastUsedAt ? 2.5 : 0
   return overlap * 2 + memory.relevance + memory.confidence + authority + profile + professionalProfile + provenanceFollowUp
 }
