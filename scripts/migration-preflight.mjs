@@ -173,15 +173,22 @@ async function schemaAndPrivileges() {
 }
 
 async function taskConcurrency() {
-  const call = () => query("select (public.transition_task($1,$2,'running','waiting_device',0,null,null,null)).*", [ids.taskA,ids.ownerA]);
+  const concurrentTask = "30000000-0000-4000-8000-000000000003";
+  await query(
+    "insert into public.tasks(id,owner_id,title,status,state_version,correlation_id) values($1,$2,'Concurrency task','running',0,$3)",
+    [concurrentTask, ids.ownerA, ids.correlation],
+  );
+  const before = await query("select status,state_version from public.tasks where id=$1", [concurrentTask]);
+  ok(before.rows[0].status === "running" && before.rows[0].state_version === "0",
+    "concurrency fixture starts at expected Task version");
+  const call = () => query("select (public.transition_task($1,$2,'running','waiting_device',0,null,null,null)).*", [concurrentTask,ids.ownerA]);
   const results = await Promise.allSettled([call(), call()]);
   process.stdout.write("Task concurrency outcomes: " + JSON.stringify(results.map(result =>
     result.status === "fulfilled" ? { status: result.status } : { status: result.status, code: result.reason.code, message: result.reason.message }
-  )) + "\\n");
+  )) + "\n");
   ok(results.filter(r => r.status === "fulfilled").length === 1, "only one concurrent Task transition wins");
   ok(results.filter(r => r.status === "rejected" && /task_transition_conflict/.test(r.reason.message)).length === 1,
     "losing Task transition reports optimistic concurrency conflict");
-  await query("select public.transition_task($1,$2,'waiting_device','running',1,null,null,null)", [ids.taskA,ids.ownerA]);
 }
 
 async function approvalAtomicityAndFingerprint() {
