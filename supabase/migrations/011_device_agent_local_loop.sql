@@ -193,8 +193,8 @@ begin
     where c.task_id=p_task_id and c.owner_id=p_owner_id and r.status='completed'
   ) then raise exception 'validated_result_required' using errcode='23514'; end if;
 
-  select * into v_task from public.tasks
-  where id=p_task_id and owner_id=p_owner_id
+  select t.* into v_task from public.tasks as t
+  where t.id=p_task_id and t.owner_id=p_owner_id
   for update;
   if not found then raise exception 'task_scope_invalid' using errcode='42501'; end if;
   if v_task.status<>p_from_status or v_task.state_version<>p_expected_version then
