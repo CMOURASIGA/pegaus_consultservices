@@ -28,12 +28,21 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.39.2
-      - name: Start disposable Supabase
+      - name: Start clean disposable Supabase without repository migrations
         run: |
+          mkdir -p /tmp/pegasus-preflight
+          mv supabase/migrations /tmp/pegasus-preflight/migrations
           supabase init --force
           supabase start
-      - name: Rebuild disposable schema from repository migrations
-        run: supabase db reset
+      - name: Build effective audited baseline and apply Migration 011
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for migration in             /tmp/pegasus-preflight/migrations/00[1-6]_*.sql             /tmp/pegasus-preflight/migrations/00[8-9]_*.sql             /tmp/pegasus-preflight/migrations/010_*.sql             /tmp/pegasus-preflight/migrations/011_*.sql
+          do
+            echo "Applying $(basename "$migration")"
+            psql --host 127.0.0.1 --port 54322 --username postgres --dbname postgres               --set ON_ERROR_STOP=1 --file "$migration"
+          done
       - name: Run grants, RLS, atomicity and concurrency preflight
         env:
           PREFLIGHT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
