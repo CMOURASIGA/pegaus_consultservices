@@ -21,6 +21,8 @@ function terms(value: string) {
 }
 
 function score(memory: MemoryRecord, queryTerms: Set<string>, query: string) {
+  const scopedProject = memory.title?.match(/^(?:decision|preference):project:([^:]+)/u)?.[1]
+  if (scopedProject && !queryTerms.has(scopedProject)) return 0
   const memoryTerms = terms(`${memory.title ?? ''} ${memory.content}`)
   let overlap = 0
   for (const term of queryTerms) if (memoryTerms.has(term)) overlap += 1
