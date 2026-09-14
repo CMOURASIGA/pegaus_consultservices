@@ -16,7 +16,10 @@ function contextMessage(label: string, items: ContextSnapshot['items']): ModelMe
   return {
     role: 'user',
     content: [`<${label}>`, ...items.map((item) => {
-      const provenance = item.provenance ? ` [origem=${item.provenance.sourceKind}${item.provenance.sourceRef ? `:${item.provenance.sourceRef}` : ''}; registrada=${item.provenance.recordedAt}; atualizada=${item.provenance.updatedAt}; autoridade=${item.provenance.authority}; confiança=${item.provenance.confidence}]` : ''
+      const actor = item.provenance?.sourceActorType
+        ? `; autor_tipo=${item.provenance.sourceActorType}${item.provenance.sourceActorRelationshipToOwner === 'same_as_owner' ? ':usuário_atual' : ''}${item.provenance.sourceActorDisplayName ? `; autor_nome=${item.provenance.sourceActorDisplayName}` : ''}`
+        : ''
+      const provenance = item.provenance ? ` [origem=${item.provenance.sourceKind}${item.provenance.sourceRef ? `:${item.provenance.sourceRef}` : ''}; registrada=${item.provenance.recordedAt}; atualizada=${item.provenance.updatedAt}; autoridade=${item.provenance.authority}; confiança=${item.provenance.confidence}${actor}]` : ''
       return `[${item.source}]${provenance} ${item.value}`
     }), `</${label}>`].join('\n'),
   }

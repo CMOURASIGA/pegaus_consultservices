@@ -64,8 +64,8 @@ describe('MemoryCurator', () => {
   it('versions an explicitly user-provided project rename instead of keeping competing current names', async () => {
     const repository = new InMemoryRepository()
     const curator = new MemoryCurator(repository)
-    await curator.capture({ ownerId: 'christian', content: 'Nos testes do Pegasus, o nome do meu projeto fictício é ProjetoAurora.', source: { kind: 'conversation', ref: 'message:user-a' } })
-    const result = await curator.capture({ ownerId: 'christian', content: 'Essa informação mudou. O projeto fictício agora se chama ProjetoHorizonte.', source: { kind: 'conversation', ref: 'message:user-b' } })
+    await curator.capture({ ownerId: 'christian', content: 'Nos testes do Pegasus, o nome do meu projeto fictício é ProjetoAurora.', source: { kind: 'user_message', ref: 'message:user-a' } })
+    const result = await curator.capture({ ownerId: 'christian', content: 'Essa informação mudou. O projeto fictício agora se chama ProjetoHorizonte.', source: { kind: 'user_message', ref: 'message:user-b' } })
 
     expect(result).toMatchObject({
       action: 'persist',
@@ -73,13 +73,13 @@ describe('MemoryCurator', () => {
       memory: {
         title: 'project:fictional-project',
         content: 'Essa informação mudou. O projeto fictício agora se chama ProjetoHorizonte.',
-        source: { kind: 'conversation', ref: 'message:user-b' },
+        source: { kind: 'user_message', ref: 'message:user-b' },
       },
     })
     expect(repository.records).toHaveLength(1)
     expect(repository.records[0]?.content).toContain('ProjetoHorizonte')
     expect(repository.versions).toEqual([
-      expect.objectContaining({ memoryId: 'memory-1', content: 'Nos testes do Pegasus, o nome do meu projeto fictício é ProjetoAurora.', reason: 'Atualização por conversation:message:user-b' }),
+      expect.objectContaining({ memoryId: 'memory-1', content: 'Nos testes do Pegasus, o nome do meu projeto fictício é ProjetoAurora.', reason: 'Atualização por user_message:message:user-b' }),
     ])
   })
 

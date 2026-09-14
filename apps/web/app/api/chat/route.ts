@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: { code: 'INVALID_MESSAGE', message: 'Revise a mensagem e tente novamente.' } }, { status: 400 })
     const files = form ? form.getAll('attachments').filter((value): value is File => value instanceof File) : []
     const attachments = await uploadChatAttachments(identity.supabase, identity.claims.sub!, files)
-    const memoryStore = new SupabaseMemoryStore(identity.supabase)
+    const memoryStore = new SupabaseMemoryStore(identity.supabase, { id: identity.claims.sub!, displayName: identity.profile.display_name ?? undefined })
     const knowledgeRepository = new SupabaseKnowledgeRepository(identity.supabase)
     const knowledge = new KnowledgeStore([], knowledgeRepository)
     const context = new ContextEngine(memoryStore, undefined, { record(metrics) { logger.info('context.assembled', metrics) } }, knowledge, new SupabaseConversationContextSource(identity.supabase))

@@ -30,11 +30,19 @@ export type MemoryVersionRecord = {
   createdAt: string
 }
 
+export type MemorySourceIdentity = {
+  type: 'authenticated_user' | 'assistant_generated' | 'external_source' | 'unknown'
+  actorId?: string
+  displayName?: string
+  relationshipToOwner: 'same_as_owner' | 'different_from_owner' | 'not_applicable' | 'unknown'
+}
+
 export interface MemoryRepository {
   create(memory: NewMemory): Promise<MemoryRecord>
   listActive(ownerId: string, limit: number): Promise<readonly MemoryRecord[]>
   findActiveByTitle?(ownerId: string, title: string): Promise<MemoryRecord | null>
   listVersions?(ownerId: string, memoryId: string, limit: number): Promise<readonly MemoryVersionRecord[]>
+  resolveSourceIdentity?(ownerId: string, source: MemoryRecord['source']): Promise<MemorySourceIdentity>
   correct(input: { ownerId: string; memoryId: string; content: string; reason: string; source?: { kind: string; ref?: string } }): Promise<MemoryRecord>
   archive(ownerId: string, memoryId: string): Promise<void>
   markUsed?(ownerId: string, memoryIds: readonly string[]): Promise<void>
@@ -43,7 +51,7 @@ export interface MemoryRepository {
 export type CurationInput = {
   ownerId: string
   content: string
-  source: { kind: 'conversation' | 'user_action'; ref?: string }
+  source: { kind: 'conversation' | 'user_message' | 'user_action'; ref?: string }
   scope?: string
   referenceContent?: string
 }

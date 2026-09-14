@@ -38,7 +38,18 @@ export type ContextSnapshot = {
     value: string
     kind?: 'trusted_session' | 'memory' | 'history' | 'external'
     trust?: 'trusted' | 'contextual' | 'untrusted_external'
-    provenance?: { sourceKind: string; sourceRef?: string; recordedAt: string; updatedAt: string; authority: string; confidence: number }
+    provenance?: {
+      sourceKind: string
+      sourceRef?: string
+      recordedAt: string
+      updatedAt: string
+      authority: string
+      confidence: number
+      sourceActorType?: 'authenticated_user' | 'assistant_generated' | 'external_source' | 'unknown'
+      sourceActorId?: string
+      sourceActorDisplayName?: string
+      sourceActorRelationshipToOwner?: 'same_as_owner' | 'different_from_owner' | 'not_applicable' | 'unknown'
+    }
   }[]
 }
 

@@ -8,6 +8,7 @@ vi.mock('../../../lib/auth/server', () => ({
     if (!state.authenticated) throw new AppError('AUTH_REQUIRED', 'Authentication required', 401)
     return {
       claims: { sub: 'owner-a' },
+      profile: { display_name: null },
       supabase: { from: () => ({ update: state.update }) },
     }
   },

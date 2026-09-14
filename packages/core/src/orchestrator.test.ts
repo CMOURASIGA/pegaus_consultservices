@@ -91,4 +91,19 @@ describe('Pegasus Core', () => {
     expect(messages[3]?.content).toContain('autoridade=assistant_generated')
     expect(messages[3]?.content).toContain('confiança=0')
   })
+
+  it('forwards source author identity without equating external sources to the owner', async () => {
+    const model: ModelDescriptor = { provider: 'fake', model: 'deterministic', enabled: true, capabilities: ['balanced'], modalities: ['text'], quality: 3, latency: 1, priority: 1, requiresCredential: false }
+    const provider = new FakeAiProvider('fake', { type: 'success', content: 'Você informou a mudança.' })
+    const generate = vi.spyOn(provider, 'generate')
+    const core = new PegasusCore(new AiRouter({ models: [model], timeoutMs: 100, retriesPerModel: 0, fallback: { enabled: false, maxModels: 1, allowPaid: false } }, [provider], { record: () => undefined }), { assemble: async () => ({ id: 'ctx', items: [
+      { source: 'memory:m1:user_message', classification: 'internal', value: 'ProjetoHorizonte', kind: 'memory', trust: 'contextual', provenance: { sourceKind: 'user_message', sourceRef: 'message:user-b', recordedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z', authority: 'explicit_user', confidence: 1, sourceActorType: 'authenticated_user', sourceActorId: 'owner-a', sourceActorRelationshipToOwner: 'same_as_owner' } },
+      { source: 'document:d1', classification: 'internal', value: 'conteúdo externo', kind: 'external', trust: 'untrusted_external', provenance: { sourceKind: 'google_drive', sourceRef: 'file:d1', recordedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', authority: 'external', confidence: 0.5, sourceActorType: 'external_source', sourceActorRelationshipToOwner: 'not_applicable' } },
+    ] }) })
+    await core.handle({ id: 'req', correlationId: 'corr', actorId: 'owner-a', input: { modality: 'text', content: 'Quem informou essa mudança?' }, requirements: { capability: 'balanced' } })
+    const messages = generate.mock.calls[0]?.[0].messages ?? []
+    expect(messages[3]?.content).toContain('autor_tipo=authenticated_user:usuário_atual')
+    expect(messages[4]?.content).toContain('autor_tipo=external_source')
+    expect(messages[4]?.content).not.toContain('usuário_atual')
+  })
 })

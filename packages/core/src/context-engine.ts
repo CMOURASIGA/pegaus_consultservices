@@ -27,7 +27,7 @@ function score(memory: MemoryRecord, queryTerms: Set<string>, query: string) {
   const authority = memory.authority === 'explicit_user' ? 0.25 : 0
   const profile = memory.type === 'working_profile' ? 0.12 : 0
   const professionalProfile = memory.type === 'working_profile' && memory.scope === 'professional' && /\b(?:projeto|sistema|arquitetura|desenvolv|decisão|decidir|implementar)\b/iu.test(query) ? 1.1 : 0
-  const provenanceFollowUp = /\b(?:por que você sabe|quando (?:eu )?(?:disse|falei)|de onde você sabe)\b/iu.test(query) && memory.lastUsedAt ? 2.5 : 0
+  const provenanceFollowUp = /\b(?:por que você sabe|quando (?:eu )?(?:disse|falei)|de onde você sabe|quem (?:informou|forneceu|disse))\b/iu.test(query) && memory.lastUsedAt ? 2.5 : 0
   return overlap * 2 + memory.relevance + memory.confidence + authority + profile + professionalProfile + provenanceFollowUp
 }
 
@@ -62,7 +62,23 @@ export class ContextEngine implements ContextPort {
         : memory.content
       const value = contextualValue.slice(0, this.budget.maxItemCharacters)
       if (characters + value.length > this.budget.maxCharacters) { truncated = true; continue }
-      items.push({ source: `memory:${memory.id}:${memory.source.kind}`, classification: 'internal', value, kind: 'memory', trust: 'contextual', provenance: { sourceKind: memory.source.kind, sourceRef: memory.source.ref, recordedAt: memory.createdAt, updatedAt: memory.updatedAt, authority: memory.authority, confidence: memory.confidence } })
+      const sourceIdentity = this.memories.resolveSourceIdentity
+        ? await this.memories.resolveSourceIdentity(request.actorId, memory.source).catch(() => { failedSources.push('source_identity'); return undefined })
+        : undefined
+      items.push({ source: `memory:${memory.id}:${memory.source.kind}`, classification: 'internal', value, kind: 'memory', trust: 'contextual', provenance: {
+        sourceKind: memory.source.kind,
+        sourceRef: memory.source.ref,
+        recordedAt: memory.createdAt,
+        updatedAt: memory.updatedAt,
+        authority: memory.authority,
+        confidence: memory.confidence,
+        ...(sourceIdentity ? {
+          sourceActorType: sourceIdentity.type,
+          sourceActorId: sourceIdentity.actorId,
+          sourceActorDisplayName: sourceIdentity.displayName,
+          sourceActorRelationshipToOwner: sourceIdentity.relationshipToOwner,
+        } : {}),
+      } })
       usedIds.push(memory.id)
       characters += value.length
     }
@@ -86,6 +102,9 @@ export class ContextEngine implements ContextPort {
           updatedAt: message.createdAt,
           authority: message.role === 'user' ? 'user_provided' : 'assistant_generated',
           confidence: message.role === 'user' ? 1 : 0,
+          sourceActorType: message.role === 'user' ? 'authenticated_user' : 'assistant_generated',
+          sourceActorId: message.role === 'user' ? request.actorId : undefined,
+          sourceActorRelationshipToOwner: message.role === 'user' ? 'same_as_owner' : 'not_applicable',
         },
       })
       characters += value.length

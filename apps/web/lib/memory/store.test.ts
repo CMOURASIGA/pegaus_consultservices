@@ -33,6 +33,34 @@ describe('SupabaseMemoryStore', () => {
     ]))
   })
 
+  it('resolves a user message author separately from the memory owner', async () => {
+    const calls: Array<{ table: string; column: string; match: unknown }> = []
+    const client = { from(table: string) { return {
+      select() { return {
+        eq(column: string, match: unknown) { calls.push({ table, column, match }); return this },
+        async maybeSingle() { return { data: { owner_id: 'owner-a', role: 'user' }, error: null } },
+      } },
+    } } } as unknown as SupabaseClient
+    const source = await new SupabaseMemoryStore(client, { id: 'owner-a', displayName: 'Christian' }).resolveSourceIdentity('owner-a', { kind: 'user_message', ref: 'message:11111111-1111-4111-8111-111111111111' })
+    expect(source).toEqual({ type: 'authenticated_user', actorId: 'owner-a', displayName: 'Christian', relationshipToOwner: 'same_as_owner' })
+    expect(calls).toEqual(expect.arrayContaining([
+      { table: 'messages', column: 'owner_id', match: 'owner-a' },
+      { table: 'messages', column: 'id', match: '11111111-1111-4111-8111-111111111111' },
+    ]))
+  })
+
+  it('never attributes assistant or external sources to the memory owner', async () => {
+    const client = { from() { return {
+      select() { return {
+        eq() { return this },
+        async maybeSingle() { return { data: { owner_id: 'owner-a', role: 'assistant' }, error: null } },
+      } },
+    } } } as unknown as SupabaseClient
+    const store = new SupabaseMemoryStore(client, { id: 'owner-a', displayName: 'Christian' })
+    await expect(store.resolveSourceIdentity('owner-a', { kind: 'conversation', ref: 'message:22222222-2222-4222-8222-222222222222' })).resolves.toEqual({ type: 'assistant_generated', relationshipToOwner: 'not_applicable' })
+    await expect(store.resolveSourceIdentity('owner-a', { kind: 'google_drive', ref: 'file:external' })).resolves.toEqual({ type: 'external_source', relationshipToOwner: 'not_applicable' })
+  })
+
   it('writes a new version before updating current state and always filters owner', async () => {
     const calls: Array<{ table: string; operation: string; value?: unknown; column?: string; match?: unknown }> = []
     const chain = (table: string, terminal: () => unknown) => ({

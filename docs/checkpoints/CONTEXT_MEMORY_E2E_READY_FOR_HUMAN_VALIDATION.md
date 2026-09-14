@@ -116,3 +116,11 @@ O dado fictício utilizado na validação foi reparado sem exclusão e sem migra
 - resposta anterior do assistente: não utilizada como fonte factual.
 
 Após a correção, 115 testes em 27 arquivos, lint, typecheck, build, standalone smoke, dependency audit e secret scan foram aprovados. O teste humano de update/provenance precisa ser repetido em uma nova sequência de conversas antes de qualquer declaração de `MEMORY E2E VALIDATED`.
+
+## Correção residual: identidade da fonte
+
+A validação seguinte comprovou valor atual, histórico e autoridade da mensagem de atualização, mas a pergunta `Quem informou essa mudança?` não recebia identidade de autoria suficiente. A auditoria confirmou que o schema existente já preserva os vínculos necessários: proprietário em `memories.owner_id`, mensagem em `source_ref` e autor autenticado em `messages.owner_id`. Não foi criada migration.
+
+O boundary Supabase agora resolve a fonte da mensagem por proprietário e ID, distingue autor da informação de proprietário da memória e utiliza o perfil confiável da sessão apenas para um nome de exibição opcional. O Core transporta essa provenance de modo independente de provider. O assembly informa ao modelo se a fonte é o usuário atual, conteúdo gerado pelo assistente ou fonte externa, sem enviar o UUID interno do autor. Perguntas sobre quem informou uma mudança passam a ser reconhecidas pelo retrieval de provenance.
+
+Regressões automatizadas cobrem atualização por `user A`, recuperação da autoria em nova conversa, referência à mensagem original, ausência de autoridade factual para `assistant_generated` e não atribuição de fonte externa ao proprietário. Nesta revisão, `npm ci`, lint, typecheck, 119 testes em 27 arquivos, build, dependency audit e secret scan foram aprovados. O runtime deverá ser validado no novo Preview HTTPS. `UPDATE/PROVENANCE E2E` permanece pendente da repetição humana de `Quem informou essa mudança?`.

@@ -22,6 +22,8 @@ Títulos semânticos estáveis, como `relationship:spouse`, `project:7grafica` e
 
 Quando a mensagem declara uma mudança de um projeto já identificado, a chave permanece ligada à identidade do projeto e não ao nome novo. O valor anterior fica somente no versionamento e pode ser recuperado, com limite, apenas quando a pergunta exige histórico. A fonte da atualização aponta para a mensagem do proprietário. Histórico gerado pelo assistente pode sustentar continuidade conversacional, mas é marcado como `assistant_generated`, com confiança factual zero, e não substitui uma mensagem `user_provided` como provenance.
 
+A identidade da fonte é resolvida separadamente do proprietário da memória. Para mensagens, o Core recebe o tipo do autor, o vínculo com o proprietário autenticado e, somente quando disponível em perfil confiável, o nome de exibição. O identificador interno do autor permanece no contrato de provenance e não é enviado ao modelo. Mensagens do assistente são `assistant_generated`; Drive e futuras integrações são fontes externas e nunca são atribuídas automaticamente ao proprietário. Perguntas naturais sobre quem informou, quando informou ou por que o Pegasus sabe algo ativam recuperação de provenance sem exigir comandos técnicos.
+
 Conteúdo com sinais ou formatos de credencial é descartado antes da persistência. Essa proteção é adicional e não substitui o Secret Manager.
 
 ## Estado e histórico

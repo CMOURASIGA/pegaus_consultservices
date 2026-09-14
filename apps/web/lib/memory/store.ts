@@ -1,6 +1,6 @@
 import 'server-only'
 
-import type { MemoryRecord, MemoryRepository, MemoryVersionRecord, NewMemory } from '@pegasus/core'
+import type { MemoryRecord, MemoryRepository, MemorySourceIdentity, MemoryVersionRecord, NewMemory } from '@pegasus/core'
 import { AppError } from '@pegasus/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -21,7 +21,7 @@ const toMemory = (row: MemoryRow): MemoryRecord => ({
 const fields = 'id, owner_id, memory_type, title, content, scope, status, confidence, relevance, authority, source_kind, source_ref, last_used_at, created_at, updated_at'
 
 export class SupabaseMemoryStore implements MemoryRepository {
-  constructor(private readonly client: SupabaseClient) {}
+  constructor(private readonly client: SupabaseClient, private readonly trustedActor?: { id: string; displayName?: string }) {}
 
   async create(memory: NewMemory) {
     const { data, error } = await this.client.from('memories').insert({
@@ -58,6 +58,34 @@ export class SupabaseMemoryStore implements MemoryRepository {
     const { data, error } = await this.client.from('memory_versions').select('version_no, content, change_reason, created_at').eq('owner_id', ownerId).eq('memory_id', memoryId).order('version_no', { ascending: false }).limit(limit)
     if (error) throw new AppError('MEMORY_READ_FAILED', 'Não foi possível consultar o histórico da memória.', 503)
     return (data ?? []).map((row) => ({ versionNo: row.version_no, content: row.content, reason: row.change_reason ?? undefined, createdAt: row.created_at }))
+  }
+
+  async resolveSourceIdentity(ownerId: string, source: MemoryRecord['source']): Promise<MemorySourceIdentity> {
+    const messageId = source.ref?.match(/^message:([0-9a-f-]{36})$/iu)?.[1]
+    if ((source.kind === 'user_message' || source.kind === 'conversation') && messageId) {
+      const { data, error } = await this.client.from('messages').select('owner_id, role').eq('owner_id', ownerId).eq('id', messageId).maybeSingle()
+      if (error) throw new AppError('MEMORY_READ_FAILED', 'Não foi possível verificar a origem da memória.', 503)
+      if (!data) return { type: 'unknown', relationshipToOwner: 'unknown' }
+      if (data.role === 'assistant') return { type: 'assistant_generated', relationshipToOwner: 'not_applicable' }
+      if (data.role === 'user') {
+        const sameAsOwner = data.owner_id === ownerId
+        const trustedActor = this.trustedActor
+        let trustedName: string | undefined
+        if (sameAsOwner && trustedActor && trustedActor.id === data.owner_id) trustedName = trustedActor.displayName
+        return {
+          type: 'authenticated_user',
+          actorId: data.owner_id,
+          ...(trustedName ? { displayName: trustedName } : {}),
+          relationshipToOwner: sameAsOwner ? 'same_as_owner' : 'different_from_owner',
+        }
+      }
+      return { type: 'unknown', relationshipToOwner: 'unknown' }
+    }
+    if (source.kind === 'user_action' && this.trustedActor?.id === ownerId) {
+      return { type: 'authenticated_user', actorId: ownerId, ...(this.trustedActor.displayName ? { displayName: this.trustedActor.displayName } : {}), relationshipToOwner: 'same_as_owner' }
+    }
+    if (!['conversation', 'user_message', 'user_action'].includes(source.kind)) return { type: 'external_source', relationshipToOwner: 'not_applicable' }
+    return { type: 'unknown', relationshipToOwner: 'unknown' }
   }
 
   async list(ownerId: string, limit = 100) {
