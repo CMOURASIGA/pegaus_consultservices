@@ -34,9 +34,12 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const voiceCapture = useRef<BrowserVoiceCapture | null>(null)
   const finishingVoice = useRef(false)
   const voiceOutput = useRef<BrowserTextToSpeech | null>(null)
-  const endRef = useRef<HTMLDivElement | null>(null)
+  const messageRegionRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [messages, status])
+  useEffect(() => {
+    const region = messageRegionRef.current
+    if (region) region.scrollTo({ top: region.scrollHeight, behavior: status === 'processing' ? 'smooth' : 'auto' })
+  }, [messages, status])
   useEffect(() => () => {
     voiceController.current?.abort()
     voiceCapture.current?.cancel()
@@ -176,8 +179,8 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
           <form action="/auth/logout" method="post"><button className="link-button compact" type="submit">Sair</button></form>
         </header>
 
-        <div className="message-region" aria-live="polite" aria-busy={status === 'processing'}>
-          {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName.toLocaleUpperCase('pt-BR')}.</h1><p>Como posso ajudar agora?</p><small>Este ambiente usa respostas locais de teste e não gera custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span>{message.attachments?.length ? <div className="message-attachments">{message.attachments.map((item) => <span key={item.id}>▧ {item.name}</span>)}</div> : null}<p>{message.content}</p></article>)}{memoryNotice ? <div className="chat-notice memory" role="status"><span>{memoryNotice}</span><a href="/memory">Revisar memória</a></div> : null}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está preparando a resposta...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}<div ref={endRef} /></div>}
+        <div className="message-region" ref={messageRegionRef} aria-live="polite" aria-busy={status === 'processing'}>
+          {messages.length === 0 ? <section className="chat-welcome"><span className="welcome-mark">P</span><p className="eyebrow">PEGASUS</p><h1>Olá, {displayName.toLocaleUpperCase('pt-BR')}.</h1><p>Como posso ajudar agora?</p><small>Este ambiente usa respostas locais de teste e não gera custo de IA.</small></section> : <div className="message-list">{messages.map((message) => <article className={`chat-message ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'Você' : 'Pegasus'}</span>{message.attachments?.length ? <div className="message-attachments">{message.attachments.map((item) => <span key={item.id}>▧ {item.name}</span>)}</div> : null}<p>{message.content}</p></article>)}{memoryNotice ? <div className="chat-notice memory" role="status"><span>{memoryNotice}</span><a href="/memory">Revisar memória</a></div> : null}{status === 'processing' && <div className="processing-state" role="status"><i /><span>Pegasus está preparando a resposta...</span></div>}{error && <div className={status === 'cancelled' ? 'chat-notice warning' : 'chat-notice error'} role="alert"><span>{error}</span>{status === 'error' && retryContent && <button type="button" onClick={() => void sendMessage(retryContent)}>Tentar novamente</button>}</div>}</div>}
         </div>
 
         <div className="composer-wrap">
