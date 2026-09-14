@@ -63,11 +63,11 @@ export class ChatService {
       ? await this.store.getConversation(input.actorId, input.conversationId)
       : await this.store.createConversation(input.actorId, titleFrom(content))
     if (!conversation) throw new AppError('CONVERSATION_NOT_FOUND', 'Conversa não encontrada.', 404)
-    const referenceContent = isDeicticMemoryRequest(content)
-      ? (await this.store.listMessages(input.actorId, conversation.id)).filter((message) => message.role === 'user').at(-1)?.content
+    const referenceMessage = isDeicticMemoryRequest(content)
+      ? (await this.store.listMessages(input.actorId, conversation.id)).filter((message) => message.role === 'user').at(-1)
       : undefined
     const userMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'user', content, correlationId, attachments: input.attachments })
-    const curation = await this.curator?.capture({ ownerId: input.actorId, content, source: { kind: 'user_message', ref: `message:${userMessage.id}` }, referenceContent }).catch((error) => {
+    const curation = await this.curator?.capture({ ownerId: input.actorId, content, source: { kind: 'user_message', ref: `message:${userMessage.id}` }, referenceContent: referenceMessage?.content, referenceSource: referenceMessage ? { kind: 'user_message', ref: `message:${referenceMessage.id}` } : undefined }).catch((error) => {
       logger.warn('memory.curation_failed', { correlationId, errorCode: error instanceof Error ? error.name : 'unknown' })
       return { action: 'discard' as const, reason: 'curation_failed' as const }
     })
