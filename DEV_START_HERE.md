@@ -3,23 +3,39 @@
 ## Para o desenvolvedor
 Este repositório é SPEC-driven. Não iniciar implementação a partir de suposições ou apenas do README. As decisões de produto, arquitetura, segurança, frontend, memória, voz, autonomia e infraestrutura estão documentadas e são requisitos.
 
+## Estado oficial em 2026-09-14
+A implementação corrente está na branch `develop`, atualmente no commit `9d408ac9` (`fix(chat): unify viewport and composer workspace`).
+
+Estado consolidado:
+- Sprint 1 - Foundation: concluída;
+- Sprint 2 - Auth e sessões: tecnicamente concluída; cerimônia TOTP real permanece pendente para go-live;
+- Sprint 3 - Pegasus Core e AI Router: concluída;
+- Sprint 4 - Web/PWA, Chat, multimodalidade e voz: implementada; ajuste de viewport/composer entregue em `9d408ac9`;
+- Sprint 5 - Memory Curator e Context Engine: validação humana aprovada para memória explícita, negative retrieval, recuperação de projeto/decisão/preferência e comportamento contextual do Pegasus;
+- Sprint 6 - Knowledge Store/Drive: implementação técnica concluída; OAuth Google Drive e E2E com fonte real permanecem pendentes;
+- Sprint 7 - Gmail, Calendar e GitHub: adiada deliberadamente. Integrações externas não são prioridade imediata;
+- próxima prioridade de produto: Tasks persistentes, Decision Guard, Device Gateway e Device Agent Windows, preservando as dependências de segurança.
+
+A postergação da Sprint 7 não remove as integrações da V1. Ela apenas altera a ordem de execução. O desenvolvimento pode avançar para as capacidades locais desde que não dependa de Gmail, Calendar, GitHub ou Drive real e que Decision Guard, autorização, auditoria e capabilities sejam implementados antes de qualquer execução local consequencial.
+
 ## Branch de especificação
-A documentação consolidada está sendo mantida em `docs/infrastructure-specs`. Antes do desenvolvimento, confirmar com Christian a branch/base oficial de implementação e não alterar produção sem autorização.
+A documentação consolidada é mantida em `docs/infrastructure-specs`. A branch oficial de implementação permanece `develop` até decisão diferente de Christian. Não alterar produção sem autorização.
 
 ## Leitura obrigatória antes de codificar
-1. `docs/phases/FASE_01_PEGASUS_CORE.md` - escopo executável da V1 e ordem das sprints.
-2. Documentos de produto/visão existentes no repositório.
-3. Especificações de infraestrutura e arquitetura existentes.
-4. Especificações de frontend/UX existentes.
-5. Especificações de segurança, autenticação, autorização e Decision Guard.
-6. Especificações de memória e modelo de dados.
-7. Especificações de AI Router, Skills/Tools e autonomia.
-8. `docs/07-voice/*` - voz, multimodal e reuniões.
-9. `docs/08-attention/*` - Attention Engine, Notification Gateway e Briefing.
-10. `docs/09-tasks/TASK_LIFECYCLE.md`.
-11. `docs/10-goals/GOALS_PRIORITIES.md`.
-12. `docs/11-personality/*`.
-13. `docs/12-context/*`.
+1. `docs/checkpoints/PROJECT_STATUS.md` - estado corrente, prioridades e blockers.
+2. `docs/phases/FASE_01_PEGASUS_CORE.md` - escopo executável da V1 e roadmap.
+3. Documentos de produto/visão existentes no repositório.
+4. Especificações de infraestrutura e arquitetura existentes.
+5. Especificações de frontend/UX existentes.
+6. Especificações de segurança, autenticação, autorização e Decision Guard.
+7. Especificações de memória e modelo de dados.
+8. Especificações de AI Router, Skills/Tools e autonomia.
+9. `docs/07-voice/*` - voz, multimodal e reuniões.
+10. `docs/08-attention/*` - Attention Engine, Notification Gateway e Briefing.
+11. `docs/09-tasks/TASK_LIFECYCLE.md`.
+12. `docs/10-goals/GOALS_PRIORITIES.md`.
+13. `docs/11-personality/*`.
+14. `docs/12-context/*`.
 
 Se houver conflito entre documentos, não escolher silenciosamente. Registrar a divergência e solicitar decisão antes de implementar comportamento de impacto.
 
@@ -34,6 +50,7 @@ Não implementar automaticamente recursos descritos como futuros apenas porque e
 - Christian mantém autoridade final sobre objetivos e ações de impacto.
 - Autonomia nunca cria novas permissões.
 - Ações externas obedecem Decision Guard e políticas de aprovação.
+- Device Agent nunca recebe poder irrestrito.
 - Conteúdo externo é não confiável por padrão.
 - SECRET nunca entra no prompt de modelo.
 - Memória é seletiva e corrigível.
@@ -44,10 +61,10 @@ Não implementar automaticamente recursos descritos como futuros apenas porque e
 - Toda ação importante precisa ser auditável.
 
 ## Estratégia de desenvolvimento
-Implementar verticalmente por Sprint. Cada Sprint deve resultar em incremento demonstrável e validável. Não construir todas as camadas parcialmente ao mesmo tempo.
+Implementar verticalmente por capacidade demonstrável e validável. A ordem original das Sprints pode ser ajustada por decisão explícita de produto, mas dependências técnicas e de segurança não podem ser ignoradas.
 
 Fluxo esperado:
-1. ler SPEC da Sprint;
+1. ler SPEC da capacidade;
 2. identificar dependências;
 3. propor implementação técnica somente quando a SPEC não fechar tecnologia específica;
 4. implementar;
@@ -56,6 +73,24 @@ Fluxo esperado:
 7. corrigir;
 8. atualizar documentação se decisão técnica relevante surgir;
 9. somente então avançar.
+
+## Prioridade imediata após atualização de 2026-09-14
+Não iniciar Gmail, Calendar ou GitHub agora.
+
+Preparar e executar a trilha:
+1. Tasks persistentes e lifecycle;
+2. Decision Guard e Approval boundary necessários para ações locais;
+3. Device Gateway e pareamento/revogação de dispositivo;
+4. Device Agent Windows mínimo;
+5. heartbeat/status e `WAITING_DEVICE`;
+6. capabilities locais explícitas;
+7. filesystem restrito a diretórios autorizados;
+8. command runner controlado e auditável;
+9. Screen Context sob comando;
+10. somente depois expandir automação local e Meeting Copilot.
+
+Objetivo do primeiro marco funcional local:
+`Login Pegasus -> máquina pareada -> Agent online -> solicitação -> Decision Guard -> aprovação/capability -> execução local restrita -> resultado no Pegasus -> auditoria`.
 
 ## Banco e migrations
 Mudanças de schema devem ocorrer por migration versionada. Não realizar alterações manuais em produção sem migration correspondente. Restrições de integridade, índices e políticas de acesso fazem parte da implementação, não são opcionais.
@@ -80,11 +115,12 @@ Para qualquer dúvida entre conveniência e segurança em ação de impacto, int
 ## Produção
 Deploy de produção somente após critérios da fase correspondente, backup/rollback e autorização de Christian. Branch de desenvolvimento e produção devem permanecer claramente separadas.
 
-## Primeira tarefa do desenvolvedor
-Antes de escrever feature code:
-1. ler toda a FASE 01;
-2. mapear stack existente do repositório;
-3. comparar stack real com SPECS;
-4. produzir plano técnico da Sprint 1;
+## Próxima tarefa do desenvolvedor
+Antes de escrever novo feature code:
+1. ler `PROJECT_STATUS.md` e a FASE 01 atualizados;
+2. mapear o que já existe de Tasks, Decision Guard, Device Gateway e Device Agent;
+3. identificar dependências reais e migrations necessárias;
+4. produzir plano técnico incremental para o primeiro marco local;
 5. listar divergências/bloqueios;
-6. só então iniciar Foundation/infraestrutura.
+6. não implementar integrações externas adiadas;
+7. somente então iniciar código.
