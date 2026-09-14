@@ -70,29 +70,26 @@ async function rejects(operation, pattern, message) {
 }
 
 async function seed() {
-  await query(`
-    insert into auth.users(id,aud,role,email,created_at,updated_at)
-    values
-      ($1,'authenticated','authenticated','a@example.invalid',now(),now()),
-      ($2,'authenticated','authenticated','b@example.invalid',now(),now())
-    on conflict (id) do nothing;
-
-    insert into public.devices(id,owner_id,friendly_name,trust_level,execution_level,capabilities,status,paired_at,last_seen_at)
-    values
-      ($3,$1,'A device','trusted','assist','{"filesystem.list":true}'::jsonb,'online',now(),now()),
-      ($4,$2,'B device','trusted','assist','{"filesystem.list":true}'::jsonb,'online',now(),now());
-
-    insert into public.tasks(id,owner_id,title,status,state_version,correlation_id)
-    values
-      ($5,$1,'A task','running',0,$7),
-      ($6,$2,'B task','running',0,$7);
-
-    insert into public.device_capability_grants(owner_id,device_id,capability,status)
-    values ($1,$3,'filesystem.list','active'),($2,$4,'filesystem.list','active');
-
-    insert into public.device_agent_identities(id,owner_id,device_id,key_id,public_key,status)
-    values ($8,$1,$3,'key-a','test-public-key','active');
-  `, [ids.ownerA, ids.ownerB, ids.deviceA, ids.deviceB, ids.taskA, ids.taskB, ids.correlation, ids.identity]);
+  await query(
+    "insert into auth.users(id,aud,role,email,created_at,updated_at) values ($1,'authenticated','authenticated','a@example.invalid',now(),now()),($2,'authenticated','authenticated','b@example.invalid',now(),now()) on conflict (id) do nothing",
+    [ids.ownerA, ids.ownerB],
+  );
+  await query(
+    "insert into public.devices(id,owner_id,friendly_name,trust_level,execution_level,capabilities,status,paired_at,last_seen_at) values ($1,$2,'A device','trusted','assist','{\"filesystem.list\":true}'::jsonb,'online',now(),now()),($3,$4,'B device','trusted','assist','{\"filesystem.list\":true}'::jsonb,'online',now(),now())",
+    [ids.deviceA, ids.ownerA, ids.deviceB, ids.ownerB],
+  );
+  await query(
+    "insert into public.tasks(id,owner_id,title,status,state_version,correlation_id) values ($1,$2,'A task','running',0,$5),($3,$4,'B task','running',0,$5)",
+    [ids.taskA, ids.ownerA, ids.taskB, ids.ownerB, ids.correlation],
+  );
+  await query(
+    "insert into public.device_capability_grants(owner_id,device_id,capability,status) values ($1,$2,'filesystem.list','active'),($3,$4,'filesystem.list','active')",
+    [ids.ownerA, ids.deviceA, ids.ownerB, ids.deviceB],
+  );
+  await query(
+    "insert into public.device_agent_identities(id,owner_id,device_id,key_id,public_key,status) values ($1,$2,$3,'key-a','test-public-key','active')",
+    [ids.identity, ids.ownerA, ids.deviceA],
+  );
 }
 
 async function requestApproval(suffix = "") {
