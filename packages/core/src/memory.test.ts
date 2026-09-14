@@ -29,8 +29,8 @@ describe('MemoryCurator', () => {
 
   it('resolves an explicit deictic memory request only from supplied conversation context', async () => {
     const repository = new InMemoryRepository()
-    const result = await new MemoryCurator(repository).capture({ ownerId: 'christian', content: 'Pegasus, lembre disso para mim.', referenceContent: 'Meu projeto usa a branch develop.', source: { kind: 'conversation', ref: 'c1' } })
-    expect(result).toMatchObject({ action: 'persist', memory: { content: 'Meu projeto usa a branch develop.', authority: 'explicit_user' } })
+    const result = await new MemoryCurator(repository).capture({ ownerId: 'christian', content: 'Pegasus, lembre disso para mim.', referenceContent: 'Meu projeto usa a branch develop.', referenceSource: { kind: 'user_message', ref: 'message:fact-1' }, source: { kind: 'user_message', ref: 'message:command-1' } })
+    expect(result).toMatchObject({ action: 'persist', memory: { content: 'Meu projeto usa a branch develop.', authority: 'explicit_user', source: { kind: 'user_message', ref: 'message:fact-1' } } })
     expect(new MemoryCurator(repository).evaluate({ ownerId: 'christian', content: 'Lembre disso.', source: { kind: 'conversation' } })).toEqual({ action: 'discard', reason: 'irrelevant' })
   })
 
@@ -49,6 +49,23 @@ describe('MemoryCurator', () => {
     expect(curator.evaluate({ ownerId: 'christian', content: 'Minha esposa se chama Bianca.', source: { kind: 'conversation', ref: 'c1' } })).toMatchObject({ action: 'persist', memory: { type: 'relationship', title: 'relationship:spouse', scope: 'personal' } })
     expect(curator.evaluate({ ownerId: 'christian', content: 'Estou desenvolvendo um sistema chamado 7Grafica para administrar uma gráfica.', source: { kind: 'conversation', ref: 'c1' } })).toMatchObject({ action: 'persist', memory: { type: 'project', title: 'project:7grafica', scope: 'professional' } })
     expect(curator.evaluate({ ownerId: 'christian', content: 'Quando desenvolvermos meus sistemas, quero que você me avise se eu tomar uma decisão ruim.', source: { kind: 'conversation', ref: 'c1' } })).toMatchObject({ action: 'persist', memory: { type: 'working_profile', title: 'preference:product-development', scope: 'professional' } })
+  })
+
+  it('curates a compound project introduction into project, decision and preference memories', async () => {
+    const repository = new InMemoryRepository()
+    const result = await new MemoryCurator(repository).capture({
+      ownerId: 'christian',
+      content: 'Estou trabalhando em um projeto fictício chamado ProjetoAtlas. Nesse projeto, segurança é prioridade e decidimos que nenhuma credencial privilegiada pode ficar no frontend. Quero também que você me alerte quando eu estiver propondo uma decisão ruim, mesmo que eu não pergunte.',
+      source: { kind: 'user_message', ref: 'message:atlas' },
+    })
+
+    expect(result).toMatchObject({ action: 'persist', memories: [
+      expect.objectContaining({ type: 'project', title: 'project:projetoatlas' }),
+      expect.objectContaining({ type: 'decision', title: expect.stringContaining('decision:project:projetoatlas') }),
+      expect.objectContaining({ type: 'working_profile', title: expect.stringContaining('preference:project:projetoatlas') }),
+    ] })
+    expect(repository.records).toHaveLength(3)
+    expect(repository.records.every((memory) => memory.source.ref === 'message:atlas')).toBe(true)
   })
 
   it('updates a stable fact instead of creating a conflicting duplicate', async () => {
