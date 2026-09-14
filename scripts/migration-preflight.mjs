@@ -96,12 +96,12 @@ async function requestApproval(suffix = "") {
   const fingerprint = "fp-" + suffix;
   const payload = { path: ".", marker: suffix };
   const result = await query(
-    "select (public.request_device_action_approval($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,now()+interval '10 minutes',$11)).*",
+    "select to_jsonb(public.request_device_action_approval($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,now()+interval '10 minutes',$11)) as approval",
     [ids.ownerA, ids.taskA, ids.deviceA, "filesystem.list", "authorized-root", "filesystem.list",
       JSON.stringify(payload), fingerprint, "approval", "medium", ids.correlation],
   );
-  const approval = result.rows[0];
-  await query("select (public.decide_device_action_approval($1,$2,'approved')).*", [approval.id, ids.ownerA]);
+  const approval = result.rows[0].approval;
+  await query("select public.decide_device_action_approval($1,$2,'approved')", [approval.id, ids.ownerA]);
   return { approval, fingerprint, payload };
 }
 
@@ -181,7 +181,7 @@ async function taskConcurrency() {
   const before = await query("select status,state_version from public.tasks where id=$1", [concurrentTask]);
   ok(before.rows[0].status === "running" && before.rows[0].state_version === "0",
     "concurrency fixture starts at expected Task version");
-  const call = () => query("select (public.transition_task($1,$2,'running','waiting_device',0,null,null,null)).*", [concurrentTask,ids.ownerA]);
+  const call = () => query("select public.transition_task($1,$2,'running','waiting_device',0,null,null,null)", [concurrentTask,ids.ownerA]);
   const results = await Promise.allSettled([call(), call()]);
   process.stdout.write("Task concurrency outcomes: " + JSON.stringify(results.map(result =>
     result.status === "fulfilled" ? { status: result.status } : { status: result.status, code: result.reason.code, message: result.reason.message }
@@ -230,10 +230,10 @@ async function approvalAtomicityAndFingerprint() {
 }
 
 async function leaseConcurrency(command) {
-  const callA = () => query("select (public.acquire_device_command_lease($1,'lease-agent-a',30)).*", [ids.deviceA]);
-  const callB = () => query("select (public.acquire_device_command_lease($1,'lease-agent-b',30)).*", [ids.deviceA]);
+  const callA = () => query("select to_jsonb(public.acquire_device_command_lease($1,'lease-agent-a',30)) as command", [ids.deviceA]);
+  const callB = () => query("select to_jsonb(public.acquire_device_command_lease($1,'lease-agent-b',30)) as command", [ids.deviceA]);
   const results = await Promise.all([callA(), callB()]);
-  ok(results.filter(result => result.rowCount === 1 && result.rows[0].id === command.id).length === 1,
+  ok(results.filter(result => result.rows[0].command?.id === command.id).length === 1,
     "only one of two Agent callers acquires the command lease");
   const attempts = await query("select count(*)::int as count from public.device_execution_attempts where command_id=$1", [command.id]);
   ok(attempts.rows[0].count === 1, "exclusive lease creates exactly one execution attempt");
