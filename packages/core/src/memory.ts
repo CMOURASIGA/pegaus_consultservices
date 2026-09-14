@@ -54,6 +54,7 @@ export type CurationInput = {
   source: { kind: 'conversation' | 'user_message' | 'user_action'; ref?: string }
   scope?: string
   referenceContent?: string
+  referenceSource?: { kind: 'user_message'; ref: string }
 }
 
 export type CurationDecision =
@@ -61,7 +62,7 @@ export type CurationDecision =
   | { action: 'persist'; memory: NewMemory }
 
 const explicitMemory = /^(?:(?:pegasus)[,!:]?\s*)?(?:por favor,?\s*)?(?:(?:quero que você\s+(?:se\s+)?lembre)|lembre(?:-se)?|guarde|memorize|registre)(?:\s+disso)?(?:\s+de)?(?:\s+que)?[\s,:-]+(.+)$/iu
-const reusableSignal = /\b(?:eu prefiro|minha preferência|quero que você|eu decidi|a decisão é|sempre use|nunca use|meu projeto|meu cliente|estou (?:desenvolvendo|criando)|(?:o|meu) projeto(?: fictício)? (?:agora )?se chama|essa informação mudou|(?:esposa|marido|filho|filha|sócio|sócia) (?:se chama|é)|trabalho (?:na|no)|meu objetivo)/iu
+const reusableSignal = /\b(?:eu prefiro|minha preferência|quero(?: também)? que você|eu decidi|decidimos que|a decisão é|sempre use|nunca use|meu projeto|meu cliente|estou (?:desenvolvendo|criando|trabalhando em)|(?:um|o|meu) projeto(?: fictício)? (?:chamado|denominado|(?:agora )?se chama)|essa informação mudou|(?:esposa|marido|filho|filha|sócio|sócia) (?:se chama|é)|trabalho (?:na|no)|meu objetivo)/iu
 const secretSignal = /\b(?:password|senha|secret|token|api[_ -]?key|service[_ -]?role|private[_ -]?key)\b\s*[:=]\s*\S+/iu
 const credentialShape = /\b(?:sk-[a-z0-9_-]{16,}|eyJ[a-z0-9_-]{20,}\.[a-z0-9_-]{10,}|[a-f0-9]{32,})\b/iu
 const sensitiveImplicit = /\b(?:cpf|rg|passaporte|cartão de crédito|conta bancária|diagnóstico|prontuário)\b/iu
@@ -75,8 +76,8 @@ export function isDeicticMemoryRequest(content: string) {
 }
 
 function inferType(content: string): MemoryType {
-  if (/\b(?:prefiro|preferência|quero que você|sempre use|nunca use)/iu.test(content)) return 'working_profile'
-  if (/\b(?:decidi|decisão)\b/iu.test(content)) return 'decision'
+  if (/\b(?:prefiro|preferência|quero(?: também)? que você|sempre use|nunca use)/iu.test(content)) return 'working_profile'
+  if (/\b(?:decidi|decidimos|decisão)\b/iu.test(content)) return 'decision'
   if (/\b(?:projeto|sistema|sprint|cliente)\b/iu.test(content)) return 'project'
   if (/\b(?:pessoa|equipe|empresa|organização|esposa|marido|filho|filha|sócio|sócia)\b/iu.test(content)) return 'relationship'
   return 'semantic'
@@ -86,12 +87,18 @@ function slug(value: string) {
   return value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
-function memoryTitle(content: string, type: MemoryType) {
+function projectName(content: string) {
+  return content.match(/\b(?:sistema|projeto)(?: fictício)?\s+(?:chamado|denominado)\s+([\p{L}\p{N}_-]+)/iu)?.[1]
+}
+
+function memoryTitle(content: string, type: MemoryType, relatedProject?: string) {
   if (/\b(?:minha\s+)?esposa\b/iu.test(content)) return 'relationship:spouse'
   if (/\b(?:meu\s+)?marido\b/iu.test(content)) return 'relationship:husband'
   if (/\b(?:o|meu) projeto fictício\b/iu.test(content)) return 'project:fictional-project'
-  const project = content.match(/\b(?:sistema|projeto)\s+(?:chamado|denominado)\s+([\p{L}\p{N}_-]+)/iu)?.[1]
+  const project = projectName(content)
   if (project) return `project:${slug(project)}`
+  if (relatedProject && type === 'decision') return `decision:project:${slug(relatedProject)}:${slug(content).slice(0, 54)}`
+  if (relatedProject && type === 'working_profile') return `preference:project:${slug(relatedProject)}:${slug(content).slice(0, 52)}`
   if (type === 'working_profile' && /\b(?:desenvolv|arquitetura|sistemas?|código|especifica)/iu.test(content)) return 'preference:product-development'
   if (type === 'working_profile') return `preference:${slug(content).slice(0, 80)}`
   if (type === 'decision') return `decision:${slug(content).slice(0, 80)}`
@@ -109,47 +116,77 @@ function inferScope(content: string, type: MemoryType, requested?: string) {
 export class MemoryCurator {
   constructor(private readonly repository: MemoryRepository) {}
 
-  evaluate(input: CurationInput): CurationDecision {
+  evaluateAll(input: CurationInput): readonly CurationDecision[] {
     const content = input.content.replace(/\s+/g, ' ').trim()
-    if (!content) return { action: 'discard', reason: 'empty' }
-    if (containsSecret(content)) return { action: 'discard', reason: 'sensitive' }
+    if (!content) return [{ action: 'discard', reason: 'empty' }]
+    if (containsSecret(content)) return [{ action: 'discard', reason: 'sensitive' }]
     const explicit = isDeicticMemoryRequest(content) ? input.referenceContent?.replace(/\s+/g, ' ').trim() : content.match(explicitMemory)?.[1]?.trim()
     const inferred = reusableSignal.test(content)
-    if (!explicit && !inferred) return { action: 'discard', reason: 'irrelevant' }
-    const value = explicit ?? content
-    if (!explicit && sensitiveImplicit.test(value)) return { action: 'discard', reason: 'sensitive' }
+    if (!explicit && !inferred) return [{ action: 'discard', reason: 'irrelevant' }]
+    if (!explicit && sensitiveImplicit.test(content)) return [{ action: 'discard', reason: 'sensitive' }]
     const authority: MemoryAuthority = explicit ? 'explicit_user' : 'inferred'
-    const type = inferType(value)
-    return {
-      action: 'persist',
-      memory: {
+    const relatedProject = projectName(content)
+    const candidates = explicit ? [explicit] : this.inferredCandidates(content, relatedProject)
+    const source = isDeicticMemoryRequest(content) && input.referenceSource ? input.referenceSource : input.source
+    return candidates.map((value) => {
+      const type = inferType(value)
+      return { action: 'persist' as const, memory: {
         ownerId: input.ownerId,
         type,
-        title: memoryTitle(value, type),
+        title: memoryTitle(value, type, relatedProject),
         content: value,
         scope: inferScope(value, type, input.scope),
         confidence: explicit ? 1 : 0.65,
         relevance: explicit ? 1 : 0.7,
         authority,
-        source: input.source,
-      },
+        source,
+      } }
+    })
+  }
+
+  evaluate(input: CurationInput): CurationDecision {
+    return this.evaluateAll(input)[0] ?? { action: 'discard', reason: 'irrelevant' }
+  }
+
+  private inferredCandidates(content: string, relatedProject?: string) {
+    if (!relatedProject) return [content]
+    const segments = content.split(/(?<=[.!?])\s+/u).map((item) => item.trim()).filter(Boolean)
+    const selected: string[] = []
+    for (const segment of segments) {
+      if (projectName(segment)) selected.push(segment)
+      if (/\b(?:eu decidi|decidimos que|a decisão é)\b/iu.test(segment)) selected.push(`[Projeto ${relatedProject}] ${segment}`)
+      if (/\b(?:eu prefiro|minha preferência|quero(?: também)? que você|sempre use|nunca use)\b/iu.test(segment)) selected.push(`[Projeto ${relatedProject}] ${segment}`)
     }
+    return [...new Set(selected.length ? selected : [content])]
   }
 
   async capture(input: CurationInput) {
-    const decision = this.evaluate(input)
-    if (decision.action === 'discard') return decision
-    const title = decision.memory.title
+    const decisions = this.evaluateAll(input)
+    if (decisions[0]?.action === 'discard') return decisions[0]
+    const persisted: Array<{ memory: MemoryRecord; operation: 'created' | 'updated' }> = []
+    let duplicate = false
+    for (const decision of decisions) {
+      if (decision.action === 'discard') continue
+      const result = await this.persist(input, decision.memory)
+      if (result) persisted.push(result)
+      else duplicate = true
+    }
+    if (!persisted.length) return { action: 'discard' as const, reason: duplicate ? 'duplicate' as const : 'irrelevant' as const }
+    return { action: 'persist' as const, memory: persisted[0]!.memory, operation: persisted[0]!.operation, memories: persisted.map((item) => item.memory) }
+  }
+
+  private async persist(input: CurationInput, candidate: NewMemory) {
+    const title = candidate.title
     if (title && this.repository.findActiveByTitle) {
       const current = await this.repository.findActiveByTitle(input.ownerId, title)
-      if (current?.content === decision.memory.content) return { action: 'discard' as const, reason: 'duplicate' as const }
+      if (current?.content === candidate.content) return null
       if (current) {
-        const memory = await this.repository.correct({ ownerId: input.ownerId, memoryId: current.id, content: decision.memory.content, reason: `Atualização por ${input.source.kind}${input.source.ref ? `:${input.source.ref}` : ''}`, source: input.source })
-        return { action: 'persist' as const, memory, operation: 'updated' as const }
+        const memory = await this.repository.correct({ ownerId: input.ownerId, memoryId: current.id, content: candidate.content, reason: `Atualização por ${candidate.source.kind}${candidate.source.ref ? `:${candidate.source.ref}` : ''}`, source: candidate.source })
+        return { memory, operation: 'updated' as const }
       }
     }
-    const memory = await this.repository.create(decision.memory)
-    return { action: 'persist' as const, memory, operation: 'created' as const }
+    const memory = await this.repository.create(candidate)
+    return { memory, operation: 'created' as const }
   }
 
   async correct(input: { ownerId: string; memoryId: string; content: string; reason?: string }) {
