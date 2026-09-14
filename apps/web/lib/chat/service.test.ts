@@ -107,6 +107,6 @@ describe('ChatService', () => {
     await store.createMessage({ ownerId: 'owner-a', conversationId: conversation.id, role: 'user', content: 'O projeto usa Supabase.', correlationId: 'previous' })
     const curator = { capture: vi.fn().mockResolvedValue({ action: 'persist', memory: { id: 'memory-1' } }) }
     await new ChatService(store, createChatCore(), curator).send({ actorId: 'owner-a', conversationId: conversation.id, content: 'Pegasus, lembre disso para mim.' })
-    expect(curator.capture).toHaveBeenCalledWith(expect.objectContaining({ content: 'Pegasus, lembre disso para mim.', referenceContent: 'O projeto usa Supabase.' }))
+    expect(curator.capture).toHaveBeenCalledWith(expect.objectContaining({ content: 'Pegasus, lembre disso para mim.', referenceContent: 'O projeto usa Supabase.', referenceSource: { kind: 'user_message', ref: expect.stringMatching(/^message:/) } }))
   })
 })
