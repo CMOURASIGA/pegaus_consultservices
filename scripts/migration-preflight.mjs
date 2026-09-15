@@ -306,7 +306,7 @@ async function gatewayProtocol() {
   );
   ok(noGrantLease.rows[0].command === null, "revoked capability cannot acquire a queued command");
   await query("update public.device_capability_grants set status='active',revoked_at=null where device_id=$1 and capability='filesystem.list'", [ids.deviceA]);
-  await query("update public.device_commands set expires_at=now()-interval '1 second' where id=$1", [noGrantCommand.id]);
+  await query("update public.device_commands set created_at=now()-interval '2 minutes',expires_at=now()-interval '1 second' where id=$1", [noGrantCommand.id]);
   const expired = await query(
     "select to_jsonb(public.acquire_device_command_lease($1,repeat('e',32),repeat('x',32),30)) as command",
     [ids.deviceA],
@@ -321,7 +321,7 @@ async function gatewayProtocol() {
     [ids.deviceA],
   );
   ok(offline.rows[0].command === null, "stale heartbeat derives an offline device and blocks leasing");
-  await query("update public.device_commands set expires_at=now()-interval '1 second' where id=$1", [offlineCommand.id]);
+  await query("update public.device_commands set created_at=now()-interval '2 minutes',expires_at=now()-interval '1 second' where id=$1", [offlineCommand.id]);
   await query("select public.record_device_heartbeat($1,$2,'0.1.0-test','Windows test',to_jsonb(array['filesystem.list']))", [ids.identity,ids.deviceA]);
 
   const retryApproval = await requestApproval("lease-expiry");
