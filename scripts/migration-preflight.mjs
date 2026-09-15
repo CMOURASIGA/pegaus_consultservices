@@ -125,9 +125,11 @@ async function schemaAndPrivileges() {
   ok(tableResult.rowCount === tables.length, "all six operational tables exist");
 
   const functions = ["transition_task","request_device_action_approval","decide_device_action_approval",
-    "revoke_device_action_approval","create_authorized_device_command","acquire_device_command_lease"];
+    "revoke_device_action_approval","create_authorized_device_command","acquire_device_command_lease",
+    "complete_device_pairing","rotate_device_agent_identity","record_device_heartbeat",
+    "record_device_command_receipt","record_device_command_result","revoke_device_runtime"];
   const functionResult = await query("select proname, prosecdef, proconfig from pg_proc join pg_namespace n on n.oid=pronamespace where n.nspname='public' and proname=any($1)", [functions]);
-  ok(functionResult.rowCount === functions.length, "all six server-only functions exist");
+  ok(functionResult.rowCount === functions.length, "all authorization and Gateway server-only functions exist");
   ok(functionResult.rows.every(row => row.prosecdef && row.proconfig?.includes("search_path=public")),
     "security definer functions have fixed public search_path");
 
@@ -168,7 +170,7 @@ async function schemaAndPrivileges() {
       "authenticated cannot " + name);
   }
   await rejects(() => asRole("authenticated", ids.ownerA,
-    "select public.acquire_device_command_lease($1,'x',30)", [ids.deviceA]), /permission denied/,
+    "select public.acquire_device_command_lease($1,repeat('x',32),repeat('n',32),30)", [ids.deviceA]), /permission denied/,
     "authenticated cannot acquire a lease");
 }
 
@@ -230,13 +232,120 @@ async function approvalAtomicityAndFingerprint() {
 }
 
 async function leaseConcurrency(command) {
-  const callA = () => query("select to_jsonb(public.acquire_device_command_lease($1,'lease-agent-a',30)) as command", [ids.deviceA]);
-  const callB = () => query("select to_jsonb(public.acquire_device_command_lease($1,'lease-agent-b',30)) as command", [ids.deviceA]);
+  const callA = () => query("select to_jsonb(public.acquire_device_command_lease($1,repeat('a',32),repeat('n',32),30)) as command", [ids.deviceA]);
+  const callB = () => query("select to_jsonb(public.acquire_device_command_lease($1,repeat('b',32),repeat('m',32),30)) as command", [ids.deviceA]);
   const results = await Promise.all([callA(), callB()]);
   ok(results.filter(result => result.rows[0].command?.id === command.id).length === 1,
     "only one of two Agent callers acquires the command lease");
   const attempts = await query("select count(*)::int as count from public.device_execution_attempts where command_id=$1", [command.id]);
   ok(attempts.rows[0].count === 1, "exclusive lease creates exactly one execution attempt");
+}
+
+async function gatewayProtocol() {
+  const heartbeat = await query(
+    "select public.record_device_heartbeat($1,$2,'0.1.0-test','Windows test',to_jsonb(array['filesystem.list'])) as value",
+    [ids.identity,ids.deviceA],
+  );
+  ok(heartbeat.rows[0].value.online === true, "authenticated heartbeat derives online state in the backend");
+
+  const approved = await requestApproval("gateway-flow");
+  const created = await createCommand(approved);
+  const command = created.rows[0].command;
+  const leaseHash = "gateway-lease-hash-value-00000001";
+  const commandNonceHash = "gateway-command-nonce-hash-00001";
+  const leased = await query(
+    "select to_jsonb(public.acquire_device_command_lease($1,$2,$3,30)) as command",
+    [ids.deviceA,leaseHash,commandNonceHash],
+  );
+  ok(leased.rows[0].command?.id === command.id, "Gateway acquires an authorized command with an exclusive lease");
+  const attempt = await query(
+    "select id from public.device_execution_attempts where command_id=$1 and attempt_no=1",
+    [command.id],
+  );
+
+  await rejects(() => query(
+    "select public.record_device_command_receipt($1,$2,$3,$4,$5,$6,$7,'accepted',null)",
+    [ids.identity,ids.deviceA,command.id,attempt.rows[0].id,leaseHash,"wrong-command-nonce-hash-000000","receipt-request-nonce-hash-00001"],
+  ), /lease_not_valid/, "receipt with a different command nonce fails closed");
+
+  const receipt = await query(
+    "select public.record_device_command_receipt($1,$2,$3,$4,$5,$6,$7,'accepted',null) as value",
+    [ids.identity,ids.deviceA,command.id,attempt.rows[0].id,leaseHash,commandNonceHash,"receipt-request-nonce-hash-00001"],
+  );
+  ok(receipt.rows[0].value.correlationId === ids.correlation, "authenticated receipt preserves correlation ID");
+  await rejects(() => query(
+    "select public.record_device_command_receipt($1,$2,$3,$4,$5,$6,$7,'accepted',null)",
+    [ids.identity,ids.deviceA,command.id,attempt.rows[0].id,leaseHash,commandNonceHash,"receipt-request-nonce-hash-00001"],
+  ), /lease_not_valid|receipt_not_valid/, "receipt replay is rejected");
+
+  const result = await query(
+    "select public.record_device_command_result($1,$2,$3,$4,$5,$6,$7,'completed',$8::jsonb,null,'0.1.0-test',null,$9,false) as value",
+    [ids.identity,ids.deviceA,command.id,attempt.rows[0].id,leaseHash,commandNonceHash,
+      "result-request-nonce-hash-0000001",JSON.stringify({ entries: ["example.txt"] }),ids.correlation],
+  );
+  ok(result.rows[0].value.terminal && result.rows[0].value.successful,
+    "structured result terminates the command successfully");
+  await rejects(() => query(
+    "select public.record_device_command_result($1,$2,$3,$4,$5,$6,$7,'completed',$8::jsonb,null,'0.1.0-test',null,$9,false)",
+    [ids.identity,ids.deviceA,command.id,attempt.rows[0].id,leaseHash,commandNonceHash,
+      "result-request-nonce-hash-0000001",JSON.stringify({ entries: [] }),ids.correlation],
+  ), /lease_not_valid|result_not_valid/, "result replay is rejected");
+
+  const audit = await query(
+    "select count(*)::int as count from public.audit_events where correlation_id=$1 and action in ('device.command.leased','device.command.receipt','device.command.result')",
+    [ids.correlation],
+  );
+  ok(audit.rows[0].count >= 3, "lease, receipt and result produce a correlated audit trail");
+
+  const noGrantApproval = await requestApproval("missing-grant");
+  const noGrantCommand = (await createCommand(noGrantApproval)).rows[0].command;
+  await query("update public.device_capability_grants set status='revoked',revoked_at=now() where device_id=$1 and capability='filesystem.list'", [ids.deviceA]);
+  const noGrantLease = await query(
+    "select to_jsonb(public.acquire_device_command_lease($1,repeat('g',32),repeat('n',32),30)) as command",
+    [ids.deviceA],
+  );
+  ok(noGrantLease.rows[0].command === null, "revoked capability cannot acquire a queued command");
+  await query("update public.device_capability_grants set status='active',revoked_at=null where device_id=$1 and capability='filesystem.list'", [ids.deviceA]);
+  await query("update public.device_commands set expires_at=now()-interval '1 second' where id=$1", [noGrantCommand.id]);
+  const expired = await query(
+    "select to_jsonb(public.acquire_device_command_lease($1,repeat('e',32),repeat('x',32),30)) as command",
+    [ids.deviceA],
+  );
+  ok(expired.rows[0].command === null, "expired command is never leased");
+
+  const offlineApproval = await requestApproval("offline-device");
+  const offlineCommand = (await createCommand(offlineApproval)).rows[0].command;
+  await query("update public.devices set status='online',last_seen_at=now()-interval '5 minutes' where id=$1", [ids.deviceA]);
+  const offline = await query(
+    "select to_jsonb(public.acquire_device_command_lease($1,repeat('o',32),repeat('f',32),30)) as command",
+    [ids.deviceA],
+  );
+  ok(offline.rows[0].command === null, "stale heartbeat derives an offline device and blocks leasing");
+  await query("update public.device_commands set expires_at=now()-interval '1 second' where id=$1", [offlineCommand.id]);
+  await query("select public.record_device_heartbeat($1,$2,'0.1.0-test','Windows test',to_jsonb(array['filesystem.list']))", [ids.identity,ids.deviceA]);
+
+  const retryApproval = await requestApproval("lease-expiry");
+  const retryCommand = (await createCommand(retryApproval)).rows[0].command;
+  const firstLease = await query(
+    "select to_jsonb(public.acquire_device_command_lease($1,repeat('1',32),repeat('2',32),30)) as command",
+    [ids.deviceA],
+  );
+  ok(firstLease.rows[0].command?.id === retryCommand.id, "first command lease succeeds");
+  await query("update public.device_commands set lease_expires_at=now()-interval '1 second' where id=$1", [retryCommand.id]);
+  const secondLease = await query(
+    "select to_jsonb(public.acquire_device_command_lease($1,repeat('3',32),repeat('4',32),30)) as command",
+    [ids.deviceA],
+  );
+  ok(secondLease.rows[0].command?.id === retryCommand.id && secondLease.rows[0].command.attempt_count === 2,
+    "expired lease is safely reacquired as a new execution attempt");
+
+  await query("select public.revoke_device_runtime($1,$2,'preflight')", [ids.ownerA,ids.deviceA]);
+  const revoked = await query("select status,revoked_at is not null as revoked from public.devices where id=$1", [ids.deviceA]);
+  ok(revoked.rows[0].status === 'revoked' && revoked.rows[0].revoked, "revocation immediately disables the device");
+  await rejects(() => query(
+    "select public.record_device_heartbeat($1,$2,'0.1.0-test','Windows test',to_jsonb(array['filesystem.list']))",
+    [ids.identity,ids.deviceA],
+  ), /identity_not_active/, "revoked Agent identity cannot send heartbeat");
 }
 
 async function nonceReplay() {
@@ -278,6 +387,7 @@ try {
   const command = await approvalAtomicityAndFingerprint();
   await leaseConcurrency(command);
   await nonceReplay();
+  await gatewayProtocol();
   process.stdout.write("\nMigration preflight passed: " + checks + " assertions.\n");
 } catch (error) {
   console.error("Migration preflight failed:", {

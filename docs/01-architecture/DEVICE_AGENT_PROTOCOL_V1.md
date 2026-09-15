@@ -69,6 +69,17 @@ The pairing request sends:
 - requested capabilities;
 - random registration nonce.
 
+The Agent also signs the canonical pairing proof with the proposed private key. The proof is:
+
+```text
+PEGASUS-PAIRING-V1
+challengeId
+SHA-256(pairingToken)
+registrationNonce
+```
+
+The Gateway verifies this signature before consuming the challenge. Possession of the temporary token alone cannot register an Agent identity.
+
 After approved pairing is consumed, the device is bound to the public key. Every authenticated Agent request includes:
 
 - device ID;
@@ -78,6 +89,18 @@ After approved pairing is consumed, the device is bound to the public key. Every
 - signature over canonical request data.
 
 The Gateway rejects unknown, revoked, expired, duplicate, future-skewed or invalidly signed requests.
+
+Authenticated request signatures use ECDSA P-256 with SHA-256 over:
+
+```text
+HTTP_METHOD
+requestPath
+timestamp
+requestNonce
+SHA-256(canonical JSON body)
+```
+
+Identity rotation requires both a request signed by the current key and a possession proof signed by the proposed next key.
 
 V1 does not store a reusable plaintext Agent secret in the database.
 
@@ -93,6 +116,25 @@ V1 does not store a reusable plaintext Agent secret in the database.
 8. Reuse of the challenge is rejected and audited.
 
 Pairing approval does not approve an operational command.
+
+## HTTPS endpoints
+
+Owner-session endpoints:
+
+- `POST /api/devices/pairing/request`
+- `POST /api/devices/pairing/approve`
+- `POST /api/devices/revoke`
+
+Agent endpoints:
+
+- `POST /api/device/pairing/complete`
+- `POST /api/device/heartbeat`
+- `POST /api/device/commands/poll`
+- `POST /api/device/commands/receipt`
+- `POST /api/device/commands/result`
+- `POST /api/device/identity/rotate`
+
+Except for one-time pairing completion, every Agent endpoint requires the six `x-pegasus-*` proof headers defined by the authenticated request contract. Responses are `Cache-Control: no-store` when they contain pairing or polling state. No endpoint accepts raw executable text.
 
 ## Heartbeat and adaptive polling
 
@@ -182,7 +224,7 @@ The Agent never receives privileged Supabase credentials.
 1. Agent sends an authenticated poll.
 2. Gateway derives device state and verifies capability grants.
 3. Gateway atomically selects one eligible queued command.
-4. Gateway creates a time-limited lease and changes it to dispatched.
+4. Gateway creates a time-limited lease, rotates the command nonce and changes it to leased.
 5. Agent acknowledges receipt using the lease token.
 6. Expired unacknowledged leases may return to queued only if policy, approval, device trust and expiry remain valid.
 7. Reacquiring a command never changes its idempotency key.
@@ -211,7 +253,7 @@ The Agent posts two signed concepts:
 
 ### Receipt
 
-Confirms whether the command was accepted for execution. It includes action ID, lease token, nonce, Agent timestamp and state `accepted` or `rejected`.
+Confirms whether the command was accepted for execution. It includes command ID, attempt ID, lease token, command nonce and state `accepted` or `rejected`. The HTTPS request also carries a separate unique signed request nonce.
 
 ### Result
 
@@ -227,6 +269,8 @@ Includes:
 - evidence digest when applicable;
 - correlation ID;
 - result nonce and signature.
+
+The result carries the same command nonce issued for that lease. A different command nonce, even with a valid Agent signature, fails closed.
 
 The Gateway verifies signature, lease relationship, device, attempt, nonce, schema and output limits. Invalid results do not complete the Task.
 
