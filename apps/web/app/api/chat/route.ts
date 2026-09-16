@@ -11,12 +11,14 @@ import { logger } from '@pegasus/logging'
 import { SupabaseMemoryStore } from '../../../lib/memory/store'
 import { SupabaseKnowledgeRepository } from '../../../lib/knowledge/store'
 import { SupabaseConversationContextSource } from '../../../lib/chat/history'
+import { applicationTimeContext, resolveTimeZone } from '../../../lib/chat/temporal-context'
 
 export const runtime = 'nodejs'
 
 const bodySchema = z.object({
   conversationId: z.uuid().optional(),
   content: z.string().trim().min(1).max(12_000),
+  timeZone: z.string().trim().min(1).max(100).optional(),
 })
 
 function errorResponse(error: unknown) {
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
     const identity = await getVerifiedIdentity()
     const isMultipart = request.headers.get('content-type')?.includes('multipart/form-data') ?? false
     const form = isMultipart ? await request.formData().catch(() => null) : null
-    const raw = form ? { conversationId: form.get('conversationId') || undefined, content: form.get('content') } : await request.json().catch(() => null)
+    const raw = form ? { conversationId: form.get('conversationId') || undefined, content: form.get('content'), timeZone: form.get('timeZone') || undefined } : await request.json().catch(() => null)
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return NextResponse.json({ error: { code: 'INVALID_MESSAGE', message: 'Revise a mensagem e tente novamente.' } }, { status: 400 })
     const files = form ? form.getAll('attachments').filter((value): value is File => value instanceof File) : []
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
     const knowledgeRepository = new SupabaseKnowledgeRepository(identity.supabase)
     const knowledge = new KnowledgeStore([], knowledgeRepository)
     const context = new ContextEngine(memoryStore, undefined, { record(metrics) { logger.info('context.assembled', metrics) } }, knowledge, new SupabaseConversationContextSource(identity.supabase))
-    const runtime = createConfiguredChatCore(context)
+    const runtime = createConfiguredChatCore(applicationTimeContext(context, resolveTimeZone(parsed.data.timeZone)))
     const service = new ChatService(new SupabaseChatStore(identity.supabase), runtime.core, new MemoryCurator(memoryStore), runtime.allowPaidModels)
     const result = await service.send({ actorId: identity.claims.sub!, content: parsed.data.content, conversationId: parsed.data.conversationId, attachments, signal: request.signal })
     if (attachments.length) await identity.supabase.from('documents').update({ metadata: { source: 'chat', external_content_trust: 'untrusted', conversation_id: result.conversation.id, message_id: result.userMessage.id } }).eq('owner_id', identity.claims.sub!).in('id', attachments.map((item) => item.id))
