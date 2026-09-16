@@ -12,5 +12,5 @@ export default async function VoicePage({ searchParams }: { searchParams: Promis
   const store = new SupabaseChatStore(supabase)
   const [conversations, activeConversation] = await Promise.all([store.listConversations(claims.sub!), conversationId ? store.getConversation(claims.sub!, conversationId) : Promise.resolve(null)])
   const messages = activeConversation ? await store.listMessages(claims.sub!, activeConversation.id) : []
-  return <ChatShell displayName={profile.display_name || 'Christian'} conversations={conversations} activeConversation={activeConversation} initialMessages={messages} initialVoiceIntent voiceSurface />
+  return <ChatShell displayName={profile.display_name || 'Christian'} conversations={conversations} activeConversation={activeConversation} initialMessages={messages} voiceSurface />
 }
