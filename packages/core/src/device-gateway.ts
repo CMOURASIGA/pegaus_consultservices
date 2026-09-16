@@ -53,6 +53,13 @@ export type PairingRequest = {
 
 export type PairingChallenge = { id: string; token: string; expiresAt: string }
 
+export type PairingCompletionResult = {
+  ownerId: string
+  deviceId: string
+  correlationId: string
+  grantedCapabilities: readonly string[]
+}
+
 export type PairingCompletion = {
   challengeId: string
   token: string
@@ -97,7 +104,7 @@ export interface DeviceGatewayRepository {
   findIdentity(deviceId: string, keyId: string): Promise<AgentIdentity | null>
   registerRequestNonce(input: { deviceId: string; identityId: string; nonceHash: string; requestKind: string; expiresAt: string }): Promise<boolean>
   createPairingChallenge(input: PairingRequest & { tokenHash: string; expiresAt: string }): Promise<{ id: string }>
-  consumePairingChallenge(input: PairingCompletion & { tokenHash: string; publicKey: string }): Promise<{ ownerId: string; deviceId: string; correlationId: string }>
+  consumePairingChallenge(input: PairingCompletion & { tokenHash: string; publicKey: string }): Promise<PairingCompletionResult>
   rotateIdentity(input: { ownerId: string; deviceId: string; currentKeyId: string; nextKeyId: string; nextPublicKey: string; now: string }): Promise<void>
   recordHeartbeat(input: { identity: AgentIdentity; agentVersion: string; operatingSystem: string; capabilities: readonly string[]; seenAt: string; offlineAfter: string }): Promise<{ online: boolean; correlationId: string }>
   acquireCommand(input: { identity: AgentIdentity; leaseTokenHash: string; commandNonceHash: string; leaseSeconds: number; now: string }): Promise<Omit<AgentCommand, 'leaseToken' | 'commandNonce'> | null>
