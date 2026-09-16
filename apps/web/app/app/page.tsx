@@ -59,7 +59,7 @@ export default async function AppPage() {
         <p className="eyebrow">SEU ESPAÇO PESSOAL</p>
         <h1>Olá, {displayName}.</h1>
         <p>O que você precisa resolver agora?</p>
-        <div className="home-actions"><Link className="primary-button home-voice-action" href="/app/chat?voice=1"><span aria-hidden="true">◉</span> Fale com o Pegasus</Link></div>
+        <div className="home-actions"><Link className="primary-button home-voice-action" href="/app/voice"><span aria-hidden="true">◉</span> Fale com o Pegasus</Link></div>
         <form className="home-text-entry" action="/app/chat" method="get"><label htmlFor="home-message">Ou escreva uma mensagem</label><div><input id="home-message" name="message" maxLength={4000} placeholder="Como posso ajudar?" /><button className="secondary-button" type="submit">Abrir chat</button></div></form>
       </section>
 
