@@ -39,7 +39,7 @@ class HarnessRepository implements DeviceGatewayRepository {
       publicKey: input.publicKey, algorithm: 'ECDSA_P256_SHA256', status: 'active',
       validFrom: NOW.toISOString(), deviceStatus: 'offline',
     }
-    return { ownerId: 'owner-1', deviceId: 'device-1', correlationId: '40000000-0000-4000-8000-000000000001' }
+    return { ownerId: 'owner-1', deviceId: 'device-1', correlationId: '40000000-0000-4000-8000-000000000001', grantedCapabilities: ['filesystem.list'] }
   }
   async rotateIdentity() {}
   async recordHeartbeat() {
