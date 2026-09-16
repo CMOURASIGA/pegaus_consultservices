@@ -13,15 +13,16 @@ type Props = {
   conversations: ChatConversation[]
   activeConversation: ChatConversation | null
   initialMessages: ChatMessage[]
+  initialDraft?: string
 }
 
 type RequestError = { error?: { code?: string; message?: string } }
 
-export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages }: Props) {
+export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages, initialDraft = '' }: Props) {
   const [conversations, setConversations] = useState(initialConversations)
   const [conversation, setConversation] = useState(initialConversation)
   const [messages, setMessages] = useState(initialMessages)
-  const [content, setContent] = useState('')
+  const [content, setContent] = useState(initialDraft)
   const [retryContent, setRetryContent] = useState('')
   const [status, setStatus] = useState<'ready' | 'processing' | 'error' | 'cancelled'>('ready')
   const [error, setError] = useState('')
@@ -63,7 +64,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     cancelVoice(false)
     shouldFollowMessages.current = true
     setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setMemoryNotice(''); setStatus('ready'); setSidebarOpen(false)
-    window.history.replaceState({}, '', '/app')
+    window.history.replaceState({}, '', '/app/chat')
   }
 
   async function sendMessage(value: string, speakResponse = false) {
@@ -82,7 +83,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       setConversation(payload.conversation)
       setMessages((current) => [...current.filter((item) => item.id !== optimistic.id), payload.userMessage, payload.assistantMessage])
       setConversations((current) => [payload.conversation, ...current.filter((item) => item.id !== payload.conversation.id)])
-      window.history.replaceState({}, '', `/app?conversation=${payload.conversation.id}`)
+      window.history.replaceState({}, '', `/app/chat?conversation=${payload.conversation.id}`)
       setFiles([]); setRetryContent(''); setStatus('ready')
       setMemoryNotice(payload.memory.action === 'persist'
         ? 'Memória guardada. Você pode revisar ou corrigir esse item na área Memória.'
@@ -186,9 +187,9 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
         <button className="new-chat-button" type="button" onClick={newConversation}><span aria-hidden="true">＋</span>Nova conversa</button>
         <nav className="conversation-list" aria-label="Histórico recente">
           <p className="navigation-label">CONVERSAS RECENTES</p>
-          {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
+          {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app/chat?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
         </nav>
-        <nav className="sidebar-footer" aria-label="Conta"><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
+        <nav className="sidebar-footer" aria-label="Conta"><a href="/app"><span aria-hidden="true">◇</span>Início</a><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
       </aside>
       {sidebarOpen && <button className="sidebar-backdrop" type="button" aria-label="Fechar conversas" onClick={() => setSidebarOpen(false)} />}
 
