@@ -73,7 +73,13 @@ export class SupabaseDeviceGatewayRepository implements DeviceGatewayRepository 
     }).single()
     if (error || !data) throw new Error('PAIRING_NOT_CONSUMABLE')
     const value = data as { ownerId: string; deviceId: string; correlationId: string }
-    return value
+    const grants = await this.client.from('device_capability_grants')
+      .select('capability').eq('device_id', value.deviceId).eq('status', 'active')
+    if (grants.error) throw new Error('PAIRING_GRANTS_LOOKUP_FAILED')
+    return {
+      ...value,
+      grantedCapabilities: (grants.data ?? []).map(grant => grant.capability),
+    }
   }
 
   async rotateIdentity(input: { ownerId: string; deviceId: string; currentKeyId: string; nextKeyId: string; nextPublicKey: string }) {
