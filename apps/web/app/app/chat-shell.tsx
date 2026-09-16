@@ -15,11 +15,12 @@ type Props = {
   initialMessages: ChatMessage[]
   initialDraft?: string
   initialVoiceIntent?: boolean
+  voiceSurface?: boolean
 }
 
 type RequestError = { error?: { code?: string; message?: string } }
 
-export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages, initialDraft = '', initialVoiceIntent = false }: Props) {
+export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages, initialDraft = '', initialVoiceIntent = false, voiceSurface = false }: Props) {
   const [conversations, setConversations] = useState(initialConversations)
   const [conversation, setConversation] = useState(initialConversation)
   const [messages, setMessages] = useState(initialMessages)
@@ -72,7 +73,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     cancelVoice(false)
     shouldFollowMessages.current = true
     setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setMemoryNotice(''); setStatus('ready'); setSidebarOpen(false)
-    window.history.replaceState({}, '', '/app/chat')
+    window.history.replaceState({}, '', voiceSurface ? '/app/voice' : '/app/chat')
   }
 
   async function sendMessage(value: string, speakResponse = false) {
@@ -91,7 +92,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       setConversation(payload.conversation)
       setMessages((current) => [...current.filter((item) => item.id !== optimistic.id), payload.userMessage, payload.assistantMessage])
       setConversations((current) => [payload.conversation, ...current.filter((item) => item.id !== payload.conversation.id)])
-      window.history.replaceState({}, '', `/app/chat?conversation=${payload.conversation.id}`)
+      window.history.replaceState({}, '', `${voiceSurface ? '/app/voice' : '/app/chat'}?conversation=${payload.conversation.id}`)
       setFiles([]); setRetryContent(''); setStatus('ready')
       setMemoryNotice(payload.memory.action === 'persist'
         ? 'Memória guardada. Você pode revisar ou corrigir esse item na área Memória.'
@@ -125,7 +126,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     if (!output.isAvailable()) { setVoiceState('idle'); setVoiceMessage('Resposta criada. A leitura em voz não está disponível neste navegador.'); return }
     setVoiceState('speaking'); setVoiceMessage('Pegasus está respondendo em voz. Toque no microfone para interromper.')
     output.speak(text, {
-      onEnd: () => { setVoiceState('idle'); setVoiceMessage('') },
+      onEnd: () => { if (voiceSurface) void startVoice(); else { setVoiceState('idle'); setVoiceMessage('') } },
       onError: () => { setVoiceState('error'); setVoiceMessage('A resposta foi criada, mas não pôde ser reproduzida em voz.') },
     })
   }
@@ -187,6 +188,11 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     const invalid = next.find((file) => !ALLOWED_ATTACHMENT_TYPES.includes(file.type as typeof ALLOWED_ATTACHMENT_TYPES[number]) || file.size <= 0 || file.size > MAX_ATTACHMENT_BYTES)
     if (invalid) { setError('Use imagens, PDF, TXT ou Markdown de até 10 MB.'); event.target.value = ''; return }
     setFiles(next); setError(''); event.target.value = ''
+  }
+
+  if (voiceSurface) {
+    const stateLabel = voiceState === 'listening' ? 'Estou ouvindo' : voiceState === 'processing' ? 'Processando sua mensagem' : voiceState === 'speaking' ? 'Pegasus está falando' : voiceState === 'requesting_permission' ? 'Preparando o microfone' : voiceState === 'error' ? 'Não foi possível usar a voz' : 'Pronto para conversar'
+    return <main className="voice-surface" aria-live="polite"><header><a href="/app" onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><span className={`voice-orb ${voiceState}`} aria-hidden="true"><i /></span><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Use os controles abaixo quando precisar interromper ou iniciar a conversa.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir gravação' : 'Iniciar conversa por voz'}>{voiceState === 'listening' ? '■' : '●'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
   }
 
   return (
