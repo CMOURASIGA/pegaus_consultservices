@@ -14,6 +14,6 @@ export async function POST(request: Request) {
     const parsed = schema.safeParse(await request.json())
     if (!parsed.success) return NextResponse.json({ error: { code: 'PAIRING_INVALID', message: 'Device request rejected.' } }, { status: 400 })
     const result = await createDeviceGateway().completePairing(parsed.data)
-    return NextResponse.json({ deviceId: result.deviceId, correlationId: result.correlationId }, { status: 201, headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ deviceId: result.deviceId, correlationId: result.correlationId, grantedCapabilities: result.grantedCapabilities }, { status: 201, headers: { 'Cache-Control': 'no-store' } })
   } catch (error) { return gatewayError(error) }
 }
