@@ -154,6 +154,26 @@ describe('ContextEngine', () => {
     })
   })
 
+  it('anchors a same-conversation provenance follow-up to the immediately preceding recovered memory', async () => {
+    const repository = new Repository([
+      base({ id: 'project', title: 'project:fictional-project', content: 'O ProjetoAurora foi substituído por ProjetoHorizonte.', type: 'project', lastUsedAt: '2026-01-03T00:00:00Z', source: { kind: 'user_message', ref: 'message:project-update' } }),
+      base({ id: 'wife', title: 'relationship:spouse', content: 'Minha esposa agora se chama Bianca.', type: 'relationship', lastUsedAt: '2026-01-04T00:00:00Z', source: { kind: 'user_message', ref: 'message:wife-update' } }),
+    ])
+    repository.resolveSourceIdentity = vi.fn(async (_ownerId, source) => ({ type: 'authenticated_user' as const, actorId: 'owner', displayName: 'Christian', relationshipToOwner: 'same_as_owner' as const, ...(source.ref === 'message:project-update' ? {} : {}) }))
+    const conversation = { retrieve: vi.fn(async () => [
+      { id: 'question', role: 'user' as const, content: 'Qual é o nome atual do ProjetoAurora?', createdAt: '2026-01-04T00:00:00Z' },
+      { id: 'answer', role: 'assistant' as const, content: 'ProjetoAurora foi substituído por ProjetoHorizonte.', createdAt: '2026-01-04T00:00:01Z' },
+    ]) }
+
+    const context = await new ContextEngine(repository, undefined, undefined, undefined, conversation).assemble({ ...request('Quem informou essa mudança e quando?'), conversationId: 'c1' })
+
+    expect(conversation.retrieve).toHaveBeenCalledWith('owner', 'c1', 'Quem informou essa mudança e quando?', 2)
+    expect(context.items[0]).toMatchObject({ source: 'conversation:c1:message:question', kind: 'history' })
+    expect(context.items[1]).toMatchObject({ source: 'conversation:c1:message:answer', kind: 'history', provenance: { authority: 'assistant_generated' } })
+    expect(context.items).toEqual(expect.arrayContaining([expect.objectContaining({ source: 'memory:project:user_message', provenance: expect.objectContaining({ sourceRef: 'message:project-update' }) })]))
+    expect(context.items).not.toEqual(expect.arrayContaining([expect.objectContaining({ source: 'memory:wife:user_message' })]))
+  })
+
   it('degrades without leaking data when a retrieval source fails', async () => {
     const observer = { record: vi.fn() }
     const repository = new Repository([])
