@@ -38,7 +38,7 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          for migration in             /tmp/pegasus-preflight/migrations/00[1-6]_*.sql             /tmp/pegasus-preflight/migrations/00[8-9]_*.sql             /tmp/pegasus-preflight/migrations/010_*.sql             /tmp/pegasus-preflight/migrations/011_*.sql             /tmp/pegasus-preflight/migrations/012_*.sql
+          for migration in             /tmp/pegasus-preflight/migrations/00[1-6]_*.sql             /tmp/pegasus-preflight/migrations/00[8-9]_*.sql             /tmp/pegasus-preflight/migrations/010_*.sql             /tmp/pegasus-preflight/migrations/011_*.sql             /tmp/pegasus-preflight/migrations/012_*.sql             /tmp/pegasus-preflight/migrations/013_*.sql
           do
             echo "Applying $(basename "$migration")"
             psql --host 127.0.0.1 --port 54322 --username postgres --dbname postgres               --set ON_ERROR_STOP=1 --file "$migration"
