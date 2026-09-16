@@ -83,7 +83,11 @@ public sealed class UserModeAgent
         }
     }
 
-    private Task Delay(TimeSpan duration, CancellationToken token) => Task.Delay(duration, time, token);
+    private async Task Delay(TimeSpan duration, CancellationToken token)
+    {
+        try { await Task.Delay(duration, time, token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+    }
 
     private void Publish(bool connected, string detail)
     {
