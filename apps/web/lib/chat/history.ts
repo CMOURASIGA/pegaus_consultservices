@@ -8,6 +8,7 @@ type Row = { id: string; role: string; content: string | null; created_at: strin
 
 const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na'])
 const terms = (value: string) => new Set(value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]{3,}/g)?.filter((term) => !stopWords.has(term)) ?? [])
+const provenanceFollowUp = (query: string) => /\b(?:por que você sabe|quando (?:eu )?(?:disse|falei)|de onde você sabe|quem (?:informou|forneceu|disse))\b/iu.test(query)
 
 export class SupabaseConversationContextSource implements ConversationContextSource {
   constructor(private readonly client: SupabaseClient) {}
@@ -15,6 +16,16 @@ export class SupabaseConversationContextSource implements ConversationContextSou
   async retrieve(ownerId: string, conversationId: string, query: string, limit = 4) {
     const { data, error } = await this.client.from('messages').select('id, role, content, created_at').eq('owner_id', ownerId).eq('conversation_id', conversationId).in('role', ['user', 'assistant']).order('created_at', { ascending: false }).limit(16)
     if (error) throw new AppError('CHAT_READ_FAILED', 'Não foi possível recuperar o contexto da conversa.', 503)
+    if (provenanceFollowUp(query)) {
+      // The latest completed turn is the referent for questions such as "essa mudança".
+      // It remains contextual only; the Memory Context Engine still resolves facts from
+      // owner-scoped memory provenance.
+      return (data as Row[])
+        .filter((row) => Boolean(row.content) && row.content!.trim() !== query.trim())
+        .slice(0, Math.max(0, Math.min(limit, 2)))
+        .reverse()
+        .map((row) => ({ id: row.id, role: row.role === 'assistant' ? 'assistant' as const : 'user' as const, content: row.content ?? '', createdAt: row.created_at }))
+    }
     const queryTerms = terms(query)
     const continuation = /\b(?:isso|essa|esse|anterior|continu|então|porque|por que|lembra)\b/iu.test(query)
     return (data as Row[])

@@ -14,13 +14,14 @@ export interface ConversationContextSource {
 const defaultBudget: ContextBudget = { maxItems: 6, maxCharacters: 4_000, maxItemCharacters: 1_000 }
 const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na','nos','nas'])
 const aliases: Record<string, readonly string[]> = { esposa: ['mulher', 'conjuge'], marido: ['homem', 'conjuge'], grafica: ['7grafica'], projeto: ['sistema'], sistema: ['projeto'] }
+const provenanceFollowUpPattern = /\b(?:por que você sabe|quando (?:eu )?(?:disse|falei)|de onde você sabe|quem (?:informou|forneceu|disse))\b/iu
 
 function terms(value: string) {
   const found = value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]{3,}/g)?.filter((term) => !stopWords.has(term)) ?? []
   return new Set(found.flatMap((term) => [term, ...(aliases[term] ?? [])]))
 }
 
-function score(memory: MemoryRecord, queryTerms: Set<string>, query: string) {
+function score(memory: MemoryRecord, queryTerms: Set<string>, query: string, hasConversationAnchor: boolean) {
   const scopedProject = memory.title?.match(/^(?:decision|preference):project:([^:]+)/u)?.[1]
   if (scopedProject && !queryTerms.has(scopedProject)) return 0
   const memoryTerms = terms(`${memory.title ?? ''} ${memory.content}`)
@@ -29,7 +30,10 @@ function score(memory: MemoryRecord, queryTerms: Set<string>, query: string) {
   const authority = memory.authority === 'explicit_user' ? 0.25 : 0
   const profile = memory.type === 'working_profile' ? 0.12 : 0
   const professionalProfile = memory.type === 'working_profile' && memory.scope === 'professional' && memory.title === 'preference:product-development' && /\b(?:projeto|sistema|arquitetura|desenvolv|decisão|decidir|implementar)\b/iu.test(query) ? 1.1 : 0
-  const provenanceFollowUp = /\b(?:por que você sabe|quando (?:eu )?(?:disse|falei)|de onde você sabe|quem (?:informou|forneceu|disse))\b/iu.test(query) && memory.lastUsedAt ? 2.5 : 0
+  // A provenance question without an anchor may use the last retrieved memory. When the
+  // immediately preceding conversation turn is available, its subject is the anchor and
+  // unrelated recently-used memories must not be promoted merely for having provenance.
+  const provenanceFollowUp = provenanceFollowUpPattern.test(query) && !hasConversationAnchor && memory.lastUsedAt ? 2.5 : 0
   return overlap * 2 + memory.relevance + memory.confidence + authority + profile + professionalProfile + provenanceFollowUp
 }
 
@@ -40,10 +44,17 @@ export class ContextEngine implements ContextPort {
     const startedAt = Date.now()
     const failedSources: string[] = []
     const candidates = await this.memories.listActive(request.actorId, 50).catch(() => { failedSources.push('memory'); return [] as readonly MemoryRecord[] })
-    const queryTerms = terms(memoryQuery(request))
+    const isProvenanceFollowUp = provenanceFollowUpPattern.test(request.input.content)
+    // For "essa mudança", the preceding assistant turn supplies the referent. It is not
+    // factual evidence itself, but it gives retrieval a bounded, same-conversation anchor.
+    const history = this.conversation && request.conversationId
+      ? await this.conversation.retrieve(request.actorId, request.conversationId, request.input.content, isProvenanceFollowUp ? 2 : this.budget.maxItems).catch(() => { failedSources.push('history'); return [] as const })
+      : []
+    const anchor = isProvenanceFollowUp ? history.map((message) => message.content).join(' ') : ''
+    const queryTerms = terms(`${memoryQuery(request)} ${anchor}`)
     const ranked = candidates
       .filter((memory) => memory.status === 'active' && !containsSecret(memory.content))
-      .map((memory) => ({ memory, score: score(memory, queryTerms, request.input.content) }))
+      .map((memory) => ({ memory, score: score(memory, queryTerms, request.input.content, Boolean(anchor)) }))
       .filter(({ memory, score }) => score >= 3 || (memory.type === 'working_profile' && score >= 2))
       .sort((left, right) => right.score - left.score || Date.parse(right.memory.updatedAt) - Date.parse(left.memory.updatedAt) || left.memory.id.localeCompare(right.memory.id))
 
@@ -51,6 +62,32 @@ export class ContextEngine implements ContextPort {
     const usedIds: string[] = []
     let characters = 0
     let truncated = false
+    const addHistory = () => {
+      for (const message of history) {
+        if (items.length >= this.budget.maxItems) { truncated = true; break }
+        const value = `${message.role}: ${message.content}`.slice(0, this.budget.maxItemCharacters)
+        if (characters + value.length > this.budget.maxCharacters || containsSecret(value)) { truncated = true; continue }
+        items.push({
+          source: `conversation:${request.conversationId}:message:${message.id}`,
+          classification: 'internal',
+          value,
+          kind: 'history',
+          trust: 'contextual',
+          provenance: {
+            sourceKind: 'conversation_history',
+            sourceRef: `message:${message.id}`,
+            recordedAt: message.createdAt,
+            updatedAt: message.createdAt,
+            authority: message.role === 'user' ? 'user_provided' : 'assistant_generated',
+            confidence: message.role === 'user' ? 1 : 0,
+            sourceActorType: message.role === 'user' ? 'authenticated_user' : 'assistant_generated',
+            sourceActorId: message.role === 'user' ? request.actorId : undefined,
+            sourceActorRelationshipToOwner: message.role === 'user' ? 'same_as_owner' : 'not_applicable',
+          },
+        })
+        characters += value.length
+      }
+    }
     for (const { memory } of ranked) {
       if (items.length >= this.budget.maxItems) { truncated = true; break }
       const versions = this.memories.listVersions
@@ -60,8 +97,8 @@ export class ContextEngine implements ContextPort {
         .filter((version) => version.content !== memory.content && !containsSecret(version.content))
         .map((version) => `versão ${version.versionNo} substituída em ${version.createdAt}: ${version.content}`)
       const contextualValue = priorVersions.length
-        ? `valor atual: ${memory.content}\nhistórico versionado, não atual:\n${priorVersions.join('\n')}`
-        : memory.content
+        ? `ESTADO ATUAL CONFIRMADO PELA MEMÓRIA PERSISTIDA: ${memory.content}\nhistórico versionado, não atual:\n${priorVersions.join('\n')}`
+        : `ESTADO ATUAL CONFIRMADO PELA MEMÓRIA PERSISTIDA: ${memory.content}`
       const value = contextualValue.slice(0, this.budget.maxItemCharacters)
       if (characters + value.length > this.budget.maxCharacters) { truncated = true; continue }
       const sourceIdentity = this.memories.resolveSourceIdentity
@@ -84,33 +121,9 @@ export class ContextEngine implements ContextPort {
       usedIds.push(memory.id)
       characters += value.length
     }
-    const history = this.conversation && request.conversationId && items.length < this.budget.maxItems
-      ? await this.conversation.retrieve(request.actorId, request.conversationId, request.input.content, this.budget.maxItems - items.length).catch(() => { failedSources.push('history'); return [] as const })
-      : []
-    for (const message of history) {
-      if (items.length >= this.budget.maxItems) { truncated = true; break }
-      const value = `${message.role}: ${message.content}`.slice(0, this.budget.maxItemCharacters)
-      if (characters + value.length > this.budget.maxCharacters || containsSecret(value)) { truncated = true; continue }
-      items.push({
-        source: `conversation:${request.conversationId}:message:${message.id}`,
-        classification: 'internal',
-        value,
-        kind: 'history',
-        trust: 'contextual',
-        provenance: {
-          sourceKind: 'conversation_history',
-          sourceRef: `message:${message.id}`,
-          recordedAt: message.createdAt,
-          updatedAt: message.createdAt,
-          authority: message.role === 'user' ? 'user_provided' : 'assistant_generated',
-          confidence: message.role === 'user' ? 1 : 0,
-          sourceActorType: message.role === 'user' ? 'authenticated_user' : 'assistant_generated',
-          sourceActorId: message.role === 'user' ? request.actorId : undefined,
-          sourceActorRelationshipToOwner: message.role === 'user' ? 'same_as_owner' : 'not_applicable',
-        },
-      })
-      characters += value.length
-    }
+    // Conversation history may resolve the subject of a provenance follow-up, but it is
+    // never sent back as evidence for that answer. Only persistent memory provenance is.
+    if (!isProvenanceFollowUp) addHistory()
     const documents = this.knowledge && items.length < this.budget.maxItems
       ? await this.knowledge.retrieve(request.actorId, memoryQuery(request), this.budget.maxItems - items.length).catch(() => { failedSources.push('document'); return [] as const })
       : []
