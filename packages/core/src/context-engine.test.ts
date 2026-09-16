@@ -26,7 +26,7 @@ describe('ContextEngine', () => {
       base({ id: 'other-owner', ownerId: 'other', content: 'Projeto Pegasus secreto' }),
     ])
     const context = await new ContextEngine(repository).assemble(request('Qual branch usamos no projeto Pegasus?'))
-    expect(context.items).toEqual([expect.objectContaining({ source: 'memory:project:conversation', classification: 'internal', value: 'O projeto Pegasus usa a branch develop', kind: 'memory', trust: 'contextual', provenance: expect.objectContaining({ sourceKind: 'conversation', sourceRef: 'c1' }) })])
+    expect(context.items).toEqual([expect.objectContaining({ source: 'memory:project:conversation', classification: 'internal', value: 'ESTADO ATUAL CONFIRMADO PELA MEMÓRIA PERSISTIDA: O projeto Pegasus usa a branch develop', kind: 'memory', trust: 'contextual', provenance: expect.objectContaining({ sourceKind: 'conversation', sourceRef: 'c1' }) })])
     expect(repository.markUsed).toHaveBeenCalledWith('owner', ['project'])
   })
 
@@ -131,7 +131,7 @@ describe('ContextEngine', () => {
     const context = await new ContextEngine(repository).assemble(request('Esse projeto já teve outro nome?'))
 
     expect(context.items).toHaveLength(1)
-    expect(context.items[0]?.value).toContain('valor atual: O projeto fictício agora se chama ProjetoHorizonte.')
+    expect(context.items[0]?.value).toContain('ESTADO ATUAL CONFIRMADO PELA MEMÓRIA PERSISTIDA: O projeto fictício agora se chama ProjetoHorizonte.')
     expect(context.items[0]?.value).toContain('histórico versionado, não atual:')
     expect(context.items[0]?.value).toContain('ProjetoAurora')
     expect(context.items[0]?.provenance).toMatchObject({ sourceRef: 'message:user-b', authority: 'explicit_user', sourceActorType: 'authenticated_user', sourceActorId: 'owner', sourceActorRelationshipToOwner: 'same_as_owner' })
@@ -168,9 +168,7 @@ describe('ContextEngine', () => {
     const context = await new ContextEngine(repository, undefined, undefined, undefined, conversation).assemble({ ...request('Quem informou essa mudança e quando?'), conversationId: 'c1' })
 
     expect(conversation.retrieve).toHaveBeenCalledWith('owner', 'c1', 'Quem informou essa mudança e quando?', 2)
-    expect(context.items[0]).toMatchObject({ source: 'conversation:c1:message:question', kind: 'history' })
-    expect(context.items[1]).toMatchObject({ source: 'conversation:c1:message:answer', kind: 'history', provenance: { authority: 'assistant_generated' } })
-    expect(context.items).toEqual(expect.arrayContaining([expect.objectContaining({ source: 'memory:project:user_message', provenance: expect.objectContaining({ sourceRef: 'message:project-update' }) })]))
+    expect(context.items).toEqual([expect.objectContaining({ source: 'memory:project:user_message', provenance: expect.objectContaining({ sourceRef: 'message:project-update', sourceActorType: 'authenticated_user' }) })])
     expect(context.items).not.toEqual(expect.arrayContaining([expect.objectContaining({ source: 'memory:wife:user_message' })]))
   })
 
