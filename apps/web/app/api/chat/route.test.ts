@@ -55,6 +55,13 @@ describe('POST /api/chat', () => {
     expect(state.send).toHaveBeenCalledWith(expect.objectContaining({ actorId: 'owner-a', content: 'Olá Pegasus' }))
   })
 
+  it('accepts a display timezone while keeping the server as the time source', async () => {
+    state.send.mockResolvedValue({ conversation: { id: 'c1' }, correlationId: 'corr' })
+    const response = await POST(new Request('https://pegasus.test/api/chat', { method: 'POST', body: JSON.stringify({ content: 'Que dia é hoje?', timeZone: 'America/Sao_Paulo' }) }))
+    expect(response.status).toBe(201)
+    expect(state.send).toHaveBeenCalledWith(expect.objectContaining({ content: 'Que dia é hoje?' }))
+  })
+
   it('accepts multipart attachments through the authenticated server boundary', async () => {
     const attachment = { id: 'document-1', name: 'foto.png', mediaType: 'image/png', size: 8, classification: 'internal' }
     state.upload.mockResolvedValue([attachment])
