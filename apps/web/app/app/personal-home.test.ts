@@ -33,7 +33,8 @@ describe('Personal Home foundation', () => {
     expect(home).toContain('href="/app/voice"')
     expect(chat).toContain('SupabaseChatStore')
     expect(chat).toContain('ChatShell')
-    expect(voice).toContain('initialVoiceIntent voiceSurface')
+    expect(voice).toContain('voiceSurface />')
+    expect(voice).not.toContain('initialVoiceIntent')
     expect(chatShell).toContain('void startVoice()')
     expect(chatShell).toContain("body.set('timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')")
     expect(shell).toContain("{ href: '/app/chat', label: 'Conversas'")
@@ -44,6 +45,8 @@ describe('Personal Home foundation', () => {
     expect(chatShell).toContain('voice-surface')
     expect(chatShell).toContain("voiceSurface ? '/app/voice' : '/app/chat'")
     expect(voice).toContain('SupabaseChatStore')
+    expect(chatShell).toContain("'Começar conversa'")
+    expect(styles).toContain('.voice-surface { height: 100vh; height: 100dvh; overflow: hidden;')
   })
 
   it('has responsive Home rules for small screens', () => {
