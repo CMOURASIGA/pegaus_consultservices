@@ -36,7 +36,8 @@ public sealed class HttpsGatewayClient : IAgentGatewayClient
 
     public async Task<int> HeartbeatAsync(AgentIdentity identity, CancellationToken cancellationToken)
     {
-        var body = new JsonObject { ["agentVersion"] = AgentVersion, ["operatingSystem"] = Environment.OSVersion.VersionString, ["capabilities"] = new JsonArray(identity.GrantedCapabilities.Select(JsonValue.Create).ToArray()) };
+        var announced = identity.GrantedCapabilities.Select(capability => (JsonNode?)JsonValue.Create(capability)).ToArray();
+        var body = new JsonObject { ["agentVersion"] = AgentVersion, ["operatingSystem"] = Environment.OSVersion.VersionString, ["capabilities"] = new JsonArray(announced) };
         var response = await SendAsync(HttpMethod.Post, identity.GatewayUrl, "/api/device/heartbeat", body, identity, cancellationToken);
         var root = await ReadJsonAsync(response, cancellationToken);
         return root["nextPollAfterMs"]?.GetValue<int>() ?? 20_000;

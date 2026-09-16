@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 
@@ -18,10 +19,11 @@ public sealed class WindowsDpapiIdentityStore : IIdentityStore
     public AgentIdentity? Load()
     {
         if (!File.Exists(path)) return null;
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("A identidade do Pegasus Agent usa DPAPI do usuário Windows.");
         try
         {
             var encrypted = File.ReadAllBytes(path);
-            var plaintext = ProtectedData.Unprotect(encrypted, Entropy, DataProtectionScope.CurrentUser);
+            var plaintext = UnprotectForCurrentUser(encrypted);
             return JsonSerializer.Deserialize<AgentIdentity>(plaintext) ?? throw new CryptographicException("Identity data is invalid.");
         }
         catch (CryptographicException exception)
@@ -32,10 +34,11 @@ public sealed class WindowsDpapiIdentityStore : IIdentityStore
 
     public void Save(AgentIdentity identity)
     {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("A identidade do Pegasus Agent usa DPAPI do usuário Windows.");
         var directory = Path.GetDirectoryName(path) ?? throw new InvalidOperationException("Identity path is invalid.");
         Directory.CreateDirectory(directory);
         var plaintext = JsonSerializer.SerializeToUtf8Bytes(identity);
-        var encrypted = ProtectedData.Protect(plaintext, Entropy, DataProtectionScope.CurrentUser);
+        var encrypted = ProtectForCurrentUser(plaintext);
         var temporary = path + ".tmp";
         File.WriteAllBytes(temporary, encrypted);
         File.Move(temporary, path, true);
@@ -45,4 +48,10 @@ public sealed class WindowsDpapiIdentityStore : IIdentityStore
     {
         if (File.Exists(path)) File.Delete(path);
     }
+
+    [SupportedOSPlatform("windows")]
+    private static byte[] ProtectForCurrentUser(byte[] plaintext) => ProtectedData.Protect(plaintext, Entropy, DataProtectionScope.CurrentUser);
+
+    [SupportedOSPlatform("windows")]
+    private static byte[] UnprotectForCurrentUser(byte[] encrypted) => ProtectedData.Unprotect(encrypted, Entropy, DataProtectionScope.CurrentUser);
 }
