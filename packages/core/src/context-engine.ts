@@ -88,7 +88,6 @@ export class ContextEngine implements ContextPort {
         characters += value.length
       }
     }
-    if (isProvenanceFollowUp) addHistory()
     for (const { memory } of ranked) {
       if (items.length >= this.budget.maxItems) { truncated = true; break }
       const versions = this.memories.listVersions
@@ -98,8 +97,8 @@ export class ContextEngine implements ContextPort {
         .filter((version) => version.content !== memory.content && !containsSecret(version.content))
         .map((version) => `versão ${version.versionNo} substituída em ${version.createdAt}: ${version.content}`)
       const contextualValue = priorVersions.length
-        ? `valor atual: ${memory.content}\nhistórico versionado, não atual:\n${priorVersions.join('\n')}`
-        : memory.content
+        ? `ESTADO ATUAL CONFIRMADO PELA MEMÓRIA PERSISTIDA: ${memory.content}\nhistórico versionado, não atual:\n${priorVersions.join('\n')}`
+        : `ESTADO ATUAL CONFIRMADO PELA MEMÓRIA PERSISTIDA: ${memory.content}`
       const value = contextualValue.slice(0, this.budget.maxItemCharacters)
       if (characters + value.length > this.budget.maxCharacters) { truncated = true; continue }
       const sourceIdentity = this.memories.resolveSourceIdentity
@@ -122,6 +121,8 @@ export class ContextEngine implements ContextPort {
       usedIds.push(memory.id)
       characters += value.length
     }
+    // Conversation history may resolve the subject of a provenance follow-up, but it is
+    // never sent back as evidence for that answer. Only persistent memory provenance is.
     if (!isProvenanceFollowUp) addHistory()
     const documents = this.knowledge && items.length < this.budget.maxItems
       ? await this.knowledge.retrieve(request.actorId, memoryQuery(request), this.budget.maxItems - items.length).catch(() => { failedSources.push('document'); return [] as const })
