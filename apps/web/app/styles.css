@@ -169,6 +169,14 @@ button, a, input, textarea, select { font: inherit; }
 .memory-form label { font-size: 13px; font-weight: 700; }
 .memory-form textarea { width: 100%; resize: vertical; border: 1px solid #b9c6d8; border-radius: 11px; padding: 12px 14px; color: var(--ink); background: #fff; line-height: 1.5; }
 .memory-form > div { display: flex; flex-wrap: wrap; gap: 9px; }
+.device-list { display: grid; gap: 16px; }
+.device-card > header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.device-card > header p { margin: 6px 0 0; }
+.device-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.device-pairing { max-width: 760px; }
+.pairing-code { display: grid; gap: 8px; padding: 14px; border: 1px solid #b9c6d8; border-radius: 11px; background: var(--soft); }
+.pairing-code code { max-width: 100%; overflow-wrap: anywhere; color: var(--blue-dark); font-size: 12px; }
+.pairing-code small { color: var(--muted); }
 .sidebar-backdrop { display: none; }
 @media (max-width: 1023px) { .chat-app { grid-template-columns: 240px minmax(0, 1fr); } .mode-badge { display: none; } }
 @media (max-width: 767px) {
@@ -198,6 +206,7 @@ button, a, input, textarea, select { font: inherit; }
   .product-header { min-height: 62px; padding: 8px 12px; }
   .product-content { width: calc(100% - 28px); padding: 34px 0; }
   .settings-callout, .security-status, .session-row { align-items: stretch; flex-direction: column; }
+  .device-card > header { flex-direction: column; }
   .settings-callout form, .settings-callout button, .session-row form, .session-row button { width: 100%; }
 }
 @media (max-height: 520px) and (orientation: landscape) { .chat-header { min-height: 52px; } .chat-welcome { padding: 18px 0; } .welcome-mark { width: 48px; height: 48px; border-radius: 14px; } }
