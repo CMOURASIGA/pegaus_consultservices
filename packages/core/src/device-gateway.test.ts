@@ -41,7 +41,7 @@ class FakeRepository implements DeviceGatewayRepository {
   async consumePairingChallenge() {
     if (this.pairingConsumed) throw new Error('consumed')
     this.pairingConsumed = true
-    return { ownerId: 'owner-1', deviceId: 'device-1', correlationId: 'correlation-1' }
+    return { ownerId: 'owner-1', deviceId: 'device-1', correlationId: 'correlation-1', grantedCapabilities: ['filesystem.list'] }
   }
   async rotateIdentity() { if (this.identity) this.identity = { ...this.identity, keyId: 'key-2', publicKey: 'valid-key' } }
   async recordHeartbeat() { this.heartbeats += 1; return { online: true, correlationId: 'correlation-1' } }
