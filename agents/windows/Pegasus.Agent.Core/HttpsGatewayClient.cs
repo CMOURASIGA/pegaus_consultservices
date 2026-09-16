@@ -31,7 +31,11 @@ public sealed class HttpsGatewayClient : IAgentGatewayClient
         var response = await SendAsync(HttpMethod.Post, gatewayUrl, "/api/device/pairing/complete", body, null, cancellationToken);
         var root = await ReadJsonAsync(response, cancellationToken);
         var deviceId = root["deviceId"]?.GetValue<string>() ?? throw new GatewayRejectedException("PAIRING_RESPONSE_INVALID");
-        return new AgentIdentity(deviceId, keyId, privateKey, publicKey, NormalizeGateway(gatewayUrl), new[] { "filesystem.list" }, DateTimeOffset.UtcNow);
+        var grantedCapabilities = root["grantedCapabilities"] is JsonArray capabilities
+            ? capabilities.Select(value => value?.GetValue<string>()).Where(value => value is not null).Cast<string>().ToArray()
+            : throw new GatewayRejectedException("PAIRING_RESPONSE_INVALID");
+        if (grantedCapabilities.Length == 0) throw new GatewayRejectedException("PAIRING_CAPABILITIES_INVALID");
+        return new AgentIdentity(deviceId, keyId, privateKey, publicKey, NormalizeGateway(gatewayUrl), grantedCapabilities, DateTimeOffset.UtcNow);
     }
 
     public async Task<int> HeartbeatAsync(AgentIdentity identity, CancellationToken cancellationToken)
@@ -107,7 +111,16 @@ public sealed class HttpsGatewayClient : IAgentGatewayClient
     {
         if (response.IsSuccessStatusCode) return;
         var body = await response.Content.ReadAsStringAsync(token);
-        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized) throw new GatewayRejectedException("AGENT_REVOKED");
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+        {
+            try
+            {
+                var parsed = JsonNode.Parse(body)?.AsObject();
+                var code = parsed?["error"]?["code"]?.GetValue<string>();
+                if (code is "IDENTITY_REVOKED" or "DEVICE_REVOKED") throw new GatewayRejectedException("AGENT_REVOKED");
+            }
+            catch (JsonException) { }
+        }
         throw new GatewayRejectedException("GATEWAY_" + ((int)response.StatusCode).ToString(), body);
     }
 
