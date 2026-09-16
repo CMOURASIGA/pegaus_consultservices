@@ -124,14 +124,32 @@ async function schemaAndPrivileges() {
   const tableResult = await query("select table_name from information_schema.tables where table_schema='public' and table_name=any($1)", [tables]);
   ok(tableResult.rowCount === tables.length, "all six operational tables exist");
 
-  const functions = ["transition_task","request_device_action_approval","decide_device_action_approval",
-    "revoke_device_action_approval","create_authorized_device_command","acquire_device_command_lease",
-    "complete_device_pairing","rotate_device_agent_identity","record_device_heartbeat",
-    "record_device_command_receipt","record_device_command_result","revoke_device_runtime"];
-  const functionResult = await query("select proname, prosecdef, proconfig from pg_proc join pg_namespace n on n.oid=pronamespace where n.nspname='public' and proname=any($1)", [functions]);
-  ok(functionResult.rowCount === functions.length, "all authorization and Gateway server-only functions exist");
+  const functionSignatures = [
+    "public.transition_task(uuid,uuid,text,text,bigint,numeric,text,text)",
+    "public.request_device_action_approval(uuid,uuid,uuid,text,text,text,jsonb,text,text,text,timestamp with time zone,uuid)",
+    "public.decide_device_action_approval(uuid,uuid,text)",
+    "public.revoke_device_action_approval(uuid,uuid)",
+    "public.create_authorized_device_command(uuid,uuid,uuid,uuid,text,text,text,jsonb,text,text,text,timestamp with time zone,uuid)",
+    "public.acquire_device_command_lease(uuid,text,text,integer)",
+    "public.complete_device_pairing(uuid,text,text,text,text)",
+    "public.rotate_device_agent_identity(uuid,uuid,text,text,text)",
+    "public.record_device_heartbeat(uuid,uuid,text,text,jsonb)",
+    "public.record_device_command_receipt(uuid,uuid,uuid,uuid,text,text,text,text,text)",
+    "public.record_device_command_result(uuid,uuid,uuid,uuid,text,text,text,text,jsonb,text,text,text,uuid,boolean)",
+    "public.revoke_device_runtime(uuid,uuid,text)",
+  ];
+  const functionResult = await query(`
+    with expected(signature) as (select unnest($1::text[]))
+    select expected.signature, p.proname, p.prosecdef, p.proconfig, p.proacl is null as uses_default_acl
+    from expected
+    left join pg_proc p on p.oid=to_regprocedure(expected.signature)
+  `, [functionSignatures]);
+  ok(functionResult.rowCount === functionSignatures.length && functionResult.rows.every(row => row.proname),
+    "all exact authorization and Gateway function signatures exist");
   ok(functionResult.rows.every(row => row.prosecdef && row.proconfig?.includes("search_path=public")),
     "security definer functions have fixed public search_path");
+  ok(functionResult.rows.every(row => !row.uses_default_acl),
+    "server-only functions have explicit ACLs rather than PUBLIC defaults");
 
   const rls = await query("select relname, relrowsecurity from pg_class join pg_namespace n on n.oid=relnamespace where n.nspname='public' and relname=any($1)", [tables]);
   ok(rls.rows.every(row => row.relrowsecurity), "RLS is enabled on every new operational table");
@@ -140,16 +158,16 @@ async function schemaAndPrivileges() {
     const execute = await query(`
       select bool_or(has_function_privilege($1,p.oid,'EXECUTE')) as allowed
       from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-      where n.nspname='public' and p.proname=any($2)
-    `, [role, functions]);
+      where p.oid=any(array(select to_regprocedure(signature) from unnest($2::text[]) signature))
+    `, [role, functionSignatures]);
     ok(execute.rows[0].allowed === false, role + " cannot execute server-only functions");
   }
 
   const serviceExecute = await query(`
     select bool_and(has_function_privilege('service_role',p.oid,'EXECUTE')) as allowed
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname=any($1)
-  `, [functions]);
+    where p.oid=any(array(select to_regprocedure(signature) from unnest($1::text[]) signature))
+  `, [functionSignatures]);
   ok(serviceExecute.rows[0].allowed, "service_role can execute all operational functions");
 
   const authSelect = await asRole("authenticated", ids.ownerA,
