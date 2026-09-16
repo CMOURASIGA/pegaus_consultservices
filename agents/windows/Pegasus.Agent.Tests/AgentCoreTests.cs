@@ -43,6 +43,15 @@ public sealed class AgentCoreTests
     }
 
     [Fact]
+    public async Task Pairing_uses_only_capabilities_returned_by_the_gateway()
+    {
+        var store = new MemoryIdentityStore(); var gateway = new FakeGateway { PairingCapabilities = new[] { "filesystem.list" } };
+        var agent = new UserModeAgent(store, gateway);
+        await agent.PairAsync(new PairingCode(Guid.NewGuid().ToString(), new string('x', 32)), "https://pegasus.test", CancellationToken.None);
+        Assert.Equal(gateway.PairingCapabilities, agent.Identity?.GrantedCapabilities);
+    }
+
+    [Fact]
     public void Windows_identity_is_protected_for_the_current_user()
     {
         var path = Path.Combine(Path.GetTempPath(), "pegasus-agent-test-" + Guid.NewGuid().ToString("N"));
@@ -91,7 +100,8 @@ public sealed class AgentCoreTests
     private sealed class FakeGateway : IAgentGatewayClient
     {
         public int PairingCalls { get; private set; } public int HeartbeatCalls { get; private set; } public AgentCommand? Command { get; set; } public string? LastErrorCode { get; private set; } public bool Revoked { get; private set; }
-        public Task<AgentIdentity> CompletePairingAsync(PairingCode code, string url, CancellationToken token) { PairingCalls++; return Task.FromResult(FakeIdentity()); }
+        public IReadOnlyList<string> PairingCapabilities { get; set; } = new[] { "filesystem.list" };
+        public Task<AgentIdentity> CompletePairingAsync(PairingCode code, string url, CancellationToken token) { PairingCalls++; return Task.FromResult(FakeIdentity() with { GrantedCapabilities = PairingCapabilities }); }
         public Task<int> HeartbeatAsync(AgentIdentity identity, CancellationToken token) { HeartbeatCalls++; return Task.FromResult(5_000); }
         public Task<(AgentCommand? Command, int NextPollAfterMs)> PollAsync(AgentIdentity identity, CancellationToken token) { var result = Command; Command = null; return Task.FromResult((result, 5_000)); }
         public Task SendUnsupportedResultAsync(AgentIdentity identity, AgentCommand command, CancellationToken token) { LastErrorCode = "unsupported_operation"; return Task.CompletedTask; }
