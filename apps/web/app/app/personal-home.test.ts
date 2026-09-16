@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const home = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8')
 const chat = readFileSync(new URL('./chat/page.tsx', import.meta.url), 'utf8')
+const chatShell = readFileSync(new URL('./chat-shell.tsx', import.meta.url), 'utf8')
 const shell = readFileSync(new URL('../product-shell.tsx', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8')
 
@@ -28,9 +29,12 @@ describe('Personal Home foundation', () => {
   })
 
   it('keeps chat on its dedicated route and preserves the voice entry point', () => {
-    expect(home).toContain('href="/app/chat"')
+    expect(home).toContain('href="/app/chat?voice=1"')
     expect(chat).toContain('SupabaseChatStore')
     expect(chat).toContain('ChatShell')
+    expect(chat).toContain("const initialVoiceIntent = requested.voice === '1'")
+    expect(chatShell).toContain('void startVoice()')
+    expect(chatShell).toContain("body.set('timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')")
     expect(shell).toContain("{ href: '/app/chat', label: 'Conversas'")
   })
 
