@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { useState, type ReactNode } from 'react'
 
-type Area = 'chat' | 'memory' | 'knowledge' | 'security' | 'sessions'
+type Area = 'chat' | 'memory' | 'knowledge' | 'devices' | 'security' | 'sessions'
 
 const navigation: Array<{ href: string; label: string; area: Area; icon: string }> = [
   { href: '/app', label: 'Conversas', area: 'chat', icon: '◇' },
   { href: '/memory', label: 'Memória', area: 'memory', icon: '◫' },
   { href: '/knowledge', label: 'Documentos', area: 'knowledge', icon: '▤' },
+  { href: '/devices', label: 'Meu computador', area: 'devices', icon: '▣' },
   { href: '/security/mfa', label: 'Segurança', area: 'security', icon: '○' },
   { href: '/sessions', label: 'Sessões', area: 'sessions', icon: '▣' },
 ]

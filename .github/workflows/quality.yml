@@ -52,3 +52,21 @@ jobs:
           HEALTH_STATUS=$(curl --silent --output /tmp/health.json --write-out '%{http_code}' http://127.0.0.1:3000/api/health)
           test "$HEALTH_STATUS" = "200" -o "$HEALTH_STATUS" = "503"
           node -e "const fs=require('fs');const h=JSON.parse(fs.readFileSync('/tmp/health.json'));if(!['healthy','degraded','unavailable'].includes(h.status))process.exit(1)"
+  windows-agent:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore agents/windows/Pegasus.Agent.sln
+      - run: dotnet build agents/windows/Pegasus.Agent.sln --configuration Release --no-restore
+      - run: dotnet test agents/windows/Pegasus.Agent.Tests/Pegasus.Agent.Tests.csproj --configuration Release --no-build
+      - name: Publish portable User Mode artifact
+        run: dotnet publish agents/windows/Pegasus.Agent.UserMode/Pegasus.Agent.UserMode.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/pegasus-agent-windows-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pegasus-agent-windows-x64
+          path: artifacts/pegasus-agent-windows-x64
+          if-no-files-found: error

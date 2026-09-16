@@ -188,7 +188,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
           <p className="navigation-label">CONVERSAS RECENTES</p>
           {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
         </nav>
-        <nav className="sidebar-footer" aria-label="Conta"><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
+        <nav className="sidebar-footer" aria-label="Conta"><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/devices"><span aria-hidden="true">▣</span>Meu computador</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
       </aside>
       {sidebarOpen && <button className="sidebar-backdrop" type="button" aria-label="Fechar conversas" onClick={() => setSidebarOpen(false)} />}
 

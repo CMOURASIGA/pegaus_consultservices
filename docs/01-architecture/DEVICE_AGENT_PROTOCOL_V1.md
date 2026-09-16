@@ -4,7 +4,7 @@
 
 - implementation branch: `feat/device-agent-local-loop`
 - transport: HTTPS request/response with adaptive polling
-- Agent: .NET 8 Worker Service on Windows
+- Agent: .NET 8 Windows User Mode host in A4A. The protocol Core is host-agnostic and will be reused by a future Service Mode.
 - Cloud components: TypeScript
 - first capability: `filesystem.list`
 - persistent WebSocket: out of scope
@@ -54,7 +54,9 @@ Authenticates the Agent, manages pairing, heartbeat, command leases, receipts, r
 
 ### Device Agent
 
-A .NET 8 Worker Service. It stores its private identity locally, polls the Gateway, validates every command and executes only allowlisted operations inside local capability constraints.
+In A4A, a .NET 8 User Mode application with a small Windows tray/app host. It runs as the logged-in Windows user with `asInvoker`, stores its private identity with DPAPI bound to that user, polls the Gateway and validates every command. A later Service Mode must reuse the same protocol Core, identity contract and capability rules.
+
+The User Mode host does not bypass AppLocker, WDAC, EDR, antivirus or endpoint policy. If execution is blocked, it must fail visibly. Online state does not enable monitoring: no screen, filesystem, keyboard, process or application observation happens unless a future typed capability is authorized and implemented.
 
 ## Agent identity
 
@@ -177,6 +179,8 @@ A provider-independent proposed action contains:
 ```
 
 Raw shell, PowerShell, CMD and model-generated executable text are invalid operations.
+
+During A4A no local operation is enabled. If an otherwise valid command reaches the Agent, it is acknowledged and completed with the structured permanent error `unsupported_operation`. It never falls back to shell or filesystem access.
 
 ## Canonical fingerprint
 
