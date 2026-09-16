@@ -66,6 +66,13 @@ public sealed class UserModeAgent
                 Publish(true, "Conectado. Última comunicação agora.");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
+            catch (GatewayRejectedException exception) when (exception.Code == "AGENT_REVOKED")
+            {
+                store.Delete();
+                paused = true;
+                Publish(false, "Acesso revogado no Pegasus. É necessário realizar novo pareamento.");
+                break;
+            }
             catch (Exception exception)
             {
                 delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 2, TimeSpan.FromMinutes(5).TotalMilliseconds));
