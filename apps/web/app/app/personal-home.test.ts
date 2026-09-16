@@ -14,9 +14,17 @@ describe('Personal Home foundation', () => {
     expect(home).not.toContain(".insert(")
   })
 
-  it('presents memory provenance without fabricating a source', () => {
-    expect(home).toContain('Fonte: {memory.source.kind}')
+  it('presents human-readable memory and provenance without exposing technical classifiers', () => {
+    expect(home).toContain('friendlyMemorySource(memory.source.kind)')
+    expect(home).toContain('<strong>{memory.content}</strong>')
+    expect(home).not.toContain('memory.title || memory.content')
     expect(home).toContain('Atualizada em {formatDate(memory.updatedAt)}')
+  })
+
+  it('keeps the current task rule behind an extensible important-now model', () => {
+    expect(home).toContain('type ImportantNowItem')
+    expect(home).toContain('buildImportantNowItems(tasks)')
+    expect(home).toContain('const importantNow = buildImportantNowItems(tasks)')
   })
 
   it('keeps chat on its dedicated route and preserves the voice entry point', () => {
@@ -30,5 +38,10 @@ describe('Personal Home foundation', () => {
     expect(styles).toContain('.home-grid')
     expect(styles).toContain('@media (max-width: 767px)')
     expect(styles).toContain('.home-grid { grid-template-columns: 1fr; }')
+  })
+
+  it('uses the existing Pegasus app icon instead of a textual mark on Home', () => {
+    expect(home).toContain('src="/icon.svg"')
+    expect(home).not.toContain('aria-hidden="true">P</span><strong>Pegasus</strong>')
   })
 })
