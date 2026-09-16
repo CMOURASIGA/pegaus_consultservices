@@ -14,11 +14,12 @@ type Props = {
   activeConversation: ChatConversation | null
   initialMessages: ChatMessage[]
   initialDraft?: string
+  initialVoiceIntent?: boolean
 }
 
 type RequestError = { error?: { code?: string; message?: string } }
 
-export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages, initialDraft = '' }: Props) {
+export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages, initialDraft = '', initialVoiceIntent = false }: Props) {
   const [conversations, setConversations] = useState(initialConversations)
   const [conversation, setConversation] = useState(initialConversation)
   const [messages, setMessages] = useState(initialMessages)
@@ -39,6 +40,8 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const messageRegionRef = useRef<HTMLDivElement | null>(null)
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
   const shouldFollowMessages = useRef(true)
+  const voiceIntentStarted = useRef(false)
+  const startVoiceFromIntent = useRef<() => void>(() => undefined)
 
   useEffect(() => {
     const region = messageRegionRef.current
@@ -58,6 +61,11 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     voiceCapture.current?.cancel()
     voiceOutput.current?.cancel()
   }, [])
+  useEffect(() => {
+    if (!initialVoiceIntent || voiceIntentStarted.current) return
+    voiceIntentStarted.current = true
+    startVoiceFromIntent.current()
+  }, [initialVoiceIntent])
 
   function newConversation() {
     controller.current?.abort()
@@ -76,7 +84,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     setMessages((current) => [...current, optimistic]); setContent(''); setRetryContent(outgoing); setError(''); setStatus('processing')
     const abortController = new AbortController(); controller.current = abortController
     try {
-      const body = new FormData(); body.set('content', outgoing); if (conversation?.id) body.set('conversationId', conversation.id); selectedFiles.forEach((file) => body.append('attachments', file))
+      const body = new FormData(); body.set('content', outgoing); body.set('timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'); if (conversation?.id) body.set('conversationId', conversation.id); selectedFiles.forEach((file) => body.append('attachments', file))
       const response = await fetch('/api/chat', { method: 'POST', body, signal: abortController.signal })
       const payload = await response.json() as SendChatResult & RequestError
       if (!response.ok) throw new Error(payload.error?.message ?? 'Não foi possível concluir a mensagem.')
@@ -137,6 +145,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       voiceCapture.current = null
     }
   }
+  startVoiceFromIntent.current = () => { void startVoice() }
 
   async function finishVoice() {
     const capture = voiceCapture.current
