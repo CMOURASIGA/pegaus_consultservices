@@ -1,14 +1,15 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties, ChangeEvent, FormEvent, KeyboardEvent } from 'react'
+import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react'
+import { PegasusHeader, usePegasusTheme } from '../pegasus-header'
 import type { ChatConversation, ChatMessage, SendChatResult } from '../../lib/chat/types'
 import { ALLOWED_ATTACHMENT_TYPES, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from '../../lib/chat/attachment-limits'
 import { composerHeight, isNearConversationEnd } from '../../lib/chat/viewport'
 import { BrowserTextToSpeech, BrowserVoiceCapture, ServerSpeechToText, mapMicrophoneError } from '../../lib/voice/browser'
 import type { VoiceState } from '../../lib/voice/types'
+import { DigitalPresence, type DigitalPresenceState } from './digital-presence'
 
 type Props = {
   displayName: string
@@ -43,8 +44,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
   const [voiceMessage, setVoiceMessage] = useState('')
   const [memoryNotice, setMemoryNotice] = useState('')
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [clock, setClock] = useState('')
+  const { theme, toggleTheme } = usePegasusTheme()
   const [online, setOnline] = useState(true)
   const [booting, setBooting] = useState(homeSurface)
   const controller = useRef<AbortController | null>(null)
@@ -83,20 +83,14 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   }, [initialVoiceIntent])
   useEffect(() => {
     if (!homeSurface) return
-    const stored = window.localStorage.getItem('pegasus-theme')
-    const initialTheme = stored === 'light' || stored === 'dark'
-      ? stored
-      : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    const updateClock = () => setClock(new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
     const updateConnection = () => setOnline(navigator.onLine)
-    const initializationFrame = window.requestAnimationFrame(() => { setTheme(initialTheme); updateClock(); updateConnection() })
-    const clockTimer = window.setInterval(updateClock, 30_000)
+    const initializationFrame = window.requestAnimationFrame(updateConnection)
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const bootTimer = window.setTimeout(() => setBooting(false), reduceMotion ? 0 : 1_800)
     window.addEventListener('online', updateConnection)
     window.addEventListener('offline', updateConnection)
     return () => {
-      window.cancelAnimationFrame(initializationFrame); window.clearInterval(clockTimer); window.clearTimeout(bootTimer)
+      window.cancelAnimationFrame(initializationFrame); window.clearTimeout(bootTimer)
       window.removeEventListener('online', updateConnection); window.removeEventListener('offline', updateConnection)
     }
   }, [homeSurface])
@@ -216,13 +210,6 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     else void startVoice()
   }
 
-  function toggleTheme() {
-    setTheme((current) => {
-      const next = current === 'dark' ? 'light' : 'dark'
-      window.localStorage.setItem('pegasus-theme', next)
-      return next
-    })
-  }
   function selectFiles(event: ChangeEvent<HTMLInputElement>) {
     const next = Array.from(event.target.files ?? [])
     if (next.length > MAX_ATTACHMENTS) { setError(`Selecione no máximo ${MAX_ATTACHMENTS} arquivos.`); event.target.value = ''; return }
@@ -233,16 +220,12 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
 
   if (homeSurface) {
     const latestAssistant = [...messages].reverse().find((message) => message.role === 'assistant')
-    const visualState = !online ? 'offline' : voiceState === 'listening' ? 'listening' : voiceState === 'processing' || status === 'processing' || voiceState === 'requesting_permission' ? 'processing' : voiceState === 'speaking' ? 'speaking' : voiceState === 'error' || status === 'error' ? 'error' : 'ready'
-    const stateLabel = booting ? 'Inicializando presença' : visualState === 'listening' ? 'Ouvindo' : visualState === 'processing' ? 'Processando' : visualState === 'speaking' ? 'Respondendo' : visualState === 'offline' ? 'Sem conexão' : visualState === 'error' ? 'Atenção necessária' : 'Pronto'
+    const visualState: DigitalPresenceState = !online ? 'offline' : status === 'processing' ? 'processing' : status === 'error' ? 'error' : 'ready'
+    const stateLabel = booting ? 'Inicializando presença' : visualState === 'processing' ? 'Processando' : visualState === 'offline' ? 'Sem conexão' : visualState === 'error' ? 'Atenção necessária' : 'Pronto'
     const context = homeContext ?? { importantNow: [], tasks: [], memories: [], taskError: false, memoryError: false }
     return (
       <main className={`digital-home theme-${theme} state-${visualState} ${booting ? 'is-booting' : ''}`}>
-        <header className="digital-home-header">
-          <Link className="digital-brand" href="/app"><Image src="/icon.svg" alt="" width={36} height={36} priority /><strong>Pegasus</strong></Link>
-          <nav aria-label="Navegação principal"><Link className="active" href="/app">Pegasus</Link><Link href="/memory">Memória</Link><Link href="/app/chat">Histórico</Link><Link href="/knowledge">Knowledge</Link></nav>
-          <div className="digital-header-actions"><time>{clock}</time><button type="button" onClick={toggleTheme} aria-label={`Ativar tema ${theme === 'dark' ? 'claro' : 'escuro'}`}>{theme === 'dark' ? '☀' : '☾'}</button><form action="/auth/logout" method="post"><button type="submit">Sair</button></form></div>
-        </header>
+        <PegasusHeader current="pegasus" theme={theme} onToggleTheme={toggleTheme} />
 
         <section className="digital-home-layout" aria-label="Presença e contexto do Pegasus">
           <aside className="context-column context-left">
@@ -252,18 +235,11 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
 
           <section className="presence-stage" aria-live="polite">
             <p className="presence-eyebrow">PRESENÇA DIGITAL</p>
-            <div className={`pegasus-presence ${visualState}`} aria-label={`Pegasus: ${stateLabel}`}>
-              <span className="presence-glow" aria-hidden="true" />
-              <span className="presence-orbit orbit-one" aria-hidden="true" />
-              <span className="presence-orbit orbit-two" aria-hidden="true" />
-              <span className="presence-orbit orbit-three" aria-hidden="true" />
-              <span className="particle-field" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--particle-index': index } as CSSProperties} />)}</span>
-              <span className="presence-core"><Image src="/icon.svg" alt="" width={112} height={112} /></span>
-            </div>
+            <DigitalPresence state={visualState} label={stateLabel} />
             <h1>Olá, {displayName}.</h1>
             <p className="presence-status"><i aria-hidden="true" />{stateLabel}</p>
             <p className="presence-message">{voiceMessage || (visualState === 'ready' ? 'Estou disponível. Fale ou escreva o que você precisa.' : visualState === 'offline' ? 'A conexão foi interrompida. Suas informações continuam protegidas.' : 'Acompanhando sua solicitação.')}</p>
-            <button className="presence-voice-button" type="button" onClick={toggleVoice} disabled={!online || status === 'processing' || voiceState === 'processing' || voiceState === 'requesting_permission'}>{voiceState === 'listening' ? 'Concluir fala' : voiceState === 'speaking' ? 'Interromper e falar' : 'Falar com Pegasus'}</button>
+            <Link className="presence-voice-button" href={conversation?.id ? `/app/voice?conversation=${conversation.id}` : '/app/voice'}>Falar com Pegasus</Link>
           </section>
 
           <aside className="context-column context-right">
@@ -275,7 +251,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
         <section className="universal-interaction" aria-label="Interação com Pegasus">
           {latestAssistant ? <div className="latest-response"><span>Pegasus</span><p>{latestAssistant.content}</p><Link href={`/app/chat?conversation=${conversation?.id ?? latestAssistant.conversationId}`}>Abrir histórico</Link></div> : null}
           {error ? <p className="home-interaction-error" role="alert">{error}</p> : null}
-          <form onSubmit={submit}><label className="sr-only" htmlFor="home-command">Pergunte ou peça alguma coisa ao Pegasus</label><input id="home-command" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Pergunte ou peça alguma coisa ao Pegasus..." maxLength={12000} disabled={!online || status === 'processing'} /><button className={`home-mic-button ${voiceState}`} type="button" onClick={toggleVoice} disabled={!online || status === 'processing' || voiceState === 'processing' || voiceState === 'requesting_permission'} aria-label="Falar com Pegasus">●</button>{status === 'processing' ? <button type="button" onClick={cancel}>Cancelar</button> : <button type="submit" disabled={!online || !content.trim()}>Enviar</button>}</form>
+          <form action="/app/chat" method="get"><label className="sr-only" htmlFor="home-command">Pergunte ou peça alguma coisa ao Pegasus</label><input id="home-command" name="message" defaultValue="" placeholder="Pergunte ou peça alguma coisa ao Pegasus..." maxLength={4000} disabled={!online} /><Link className="home-mic-button" href={conversation?.id ? `/app/voice?conversation=${conversation.id}` : '/app/voice'} aria-label="Abrir conversa por voz">●</Link><button type="submit" disabled={!online}>Abrir conversa</button></form>
         </section>
       </main>
     )
@@ -283,11 +259,12 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
 
   if (voiceSurface) {
     const stateLabel = voiceState === 'listening' ? 'Estou ouvindo' : voiceState === 'processing' ? 'Processando sua mensagem' : voiceState === 'speaking' ? 'Pegasus está falando' : voiceState === 'requesting_permission' ? 'Preparando o microfone' : voiceState === 'error' ? 'Não foi possível usar a voz' : 'Pronto para conversar'
-    return <main className="voice-surface" aria-live="polite"><header><a href="/app" onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><span className={`voice-hud ${voiceState}`} aria-hidden="true"><i className="voice-hud-ring outer" /><i className="voice-hud-ring middle" /><i className="voice-hud-ring inner" /><i className="voice-hud-core" /></span><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Quando estiver pronto, inicie a conversa por voz.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir gravação' : 'Começar conversa'}>{voiceState === 'listening' ? 'Concluir' : 'Começar conversa'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
+    const visualState: DigitalPresenceState = voiceState === 'listening' ? 'listening' : voiceState === 'processing' || voiceState === 'requesting_permission' ? 'processing' : voiceState === 'speaking' ? 'speaking' : voiceState === 'error' ? 'error' : 'ready'
+    return <main className={`voice-surface theme-${theme}`} aria-live="polite"><header><a href="/app" onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><DigitalPresence state={visualState} compact label={stateLabel} /><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Quando estiver pronto, inicie a conversa por voz.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir gravação' : 'Começar conversa'}>{voiceState === 'listening' ? 'Concluir' : 'Começar conversa'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
   }
 
   return (
-    <main className="chat-app">
+    <main className={`chat-app-shell theme-${theme}`}><PegasusHeader current="history" theme={theme} onToggleTheme={toggleTheme} /><section className="chat-app">
       <aside className={`chat-sidebar ${sidebarOpen ? 'is-open' : ''}`} aria-label="Conversas recentes">
         <div className="chat-brand"><span className="brand-symbol" aria-hidden="true">P</span><div><strong>Pegasus</strong><small>Consult Services</small></div></div>
         <button className="new-chat-button" type="button" onClick={newConversation}><span aria-hidden="true">＋</span>Nova conversa</button>
@@ -325,6 +302,6 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
           </div>
         </div>
       </section>
-    </main>
+    </section></main>
   )
 }
