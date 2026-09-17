@@ -6,6 +6,7 @@ import { readServerConfig } from '@pegasus/config'
 import { logger } from '@pegasus/logging'
 import { AppError } from '@pegasus/shared'
 import type { ChatStore, SendChatInput, SendChatResult } from './types'
+import type { LiveInformationPort } from '../live-information/types'
 
 const fakeModel = {
   provider: 'pegasus-fake', model: 'local-safe-v1', enabled: true,
@@ -52,7 +53,7 @@ function titleFrom(content: string) {
 }
 
 export class ChatService {
-  constructor(private readonly store: ChatStore, private readonly core: Pick<PegasusCore, 'handle'> = createChatCore(), private readonly curator?: Pick<MemoryCurator, 'capture'>, private readonly allowPaidModels = false) {}
+  constructor(private readonly store: ChatStore, private readonly core: Pick<PegasusCore, 'handle'> = createChatCore(), private readonly curator?: Pick<MemoryCurator, 'capture'>, private readonly allowPaidModels = false, private readonly liveInformation?: LiveInformationPort) {}
 
   async send(input: SendChatInput): Promise<SendChatResult> {
     const content = input.content.trim()
@@ -67,16 +68,21 @@ export class ChatService {
       ? (await this.store.listMessages(input.actorId, conversation.id)).filter((message) => message.role === 'user').at(-1)
       : undefined
     const userMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'user', content, correlationId, attachments: input.attachments })
-    const curation = await this.curator?.capture({ ownerId: input.actorId, content, source: { kind: 'user_message', ref: `message:${userMessage.id}` }, referenceContent: referenceMessage?.content, referenceSource: referenceMessage ? { kind: 'user_message', ref: `message:${referenceMessage.id}` } : undefined }).catch((error) => {
+    const live = await this.liveInformation?.resolve({ query: content, locale: 'pt-BR', signal: input.signal }) ?? { status: 'not_applicable' as const }
+    if (live.status === 'needs_input' || live.status === 'unavailable') {
+      const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: live.message, correlationId, provider: 'pegasus-live-information', model: 'deterministic-safe-failure' })
+      return { conversation, userMessage, assistantMessage, correlationId, provider: 'pegasus-live-information', model: 'deterministic-safe-failure', memory: { action: 'discard', reason: 'live_information_ephemeral' } }
+    }
+    const curation = live.status === 'available' ? undefined : await this.curator?.capture({ ownerId: input.actorId, content, source: { kind: 'user_message', ref: `message:${userMessage.id}` }, referenceContent: referenceMessage?.content, referenceSource: referenceMessage ? { kind: 'user_message', ref: `message:${referenceMessage.id}` } : undefined }).catch((error) => {
       logger.warn('memory.curation_failed', { correlationId, errorCode: error instanceof Error ? error.name : 'unknown' })
       return { action: 'discard' as const, reason: 'curation_failed' as const }
     })
     const hasImage = input.attachments?.some((item) => item.mediaType.startsWith('image/')) ?? false
-    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: this.allowPaidModels, signal: input.signal } }
+    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: this.allowPaidModels, signal: input.signal }, liveInformation: live.status === 'available' ? live.evidence : undefined }
     try {
       const result = await this.core.handle(request)
-      const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: result.content, correlationId, provider: result.route.provider, model: result.route.model })
-      return { conversation, userMessage, assistantMessage, correlationId, provider: result.route.provider, model: result.route.model, memory: curation?.action === 'persist' ? { action: 'persist', memoryId: curation.memory.id } : { action: 'discard', reason: curation?.reason ?? 'curator_unavailable' } }
+      const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: result.content, correlationId, provider: result.route.provider, model: result.route.model, liveInformation: live.status === 'available' ? live.evidence.map(({ capability, provider, sourceName, sourceUrl, observedAt, retrievedAt, validUntil }) => ({ capability, provider, sourceName, sourceUrl, observedAt, retrievedAt, validUntil })) : undefined })
+      return { conversation, userMessage, assistantMessage, correlationId, provider: result.route.provider, model: result.route.model, memory: live.status === 'available' ? { action: 'discard', reason: 'live_information_ephemeral' } : curation?.action === 'persist' ? { action: 'persist', memoryId: curation.memory.id } : { action: 'discard', reason: curation?.reason ?? 'curator_unavailable' } }
     } catch (error) {
       if (error instanceof AiRouterError && error.detail.code === 'cancelled') throw new AppError('GENERATION_CANCELLED', 'Geração cancelada.', 499)
       if (error instanceof AiRouterError && error.detail.code === 'timeout') throw new AppError('GENERATION_TIMEOUT', 'O tempo de resposta foi excedido. Tente novamente.', 504)

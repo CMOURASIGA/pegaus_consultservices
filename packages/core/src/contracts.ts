@@ -4,6 +4,19 @@ export type Quality = 'economy' | 'standard' | 'high'
 export type LatencyPreference = 'low' | 'normal' | 'relaxed'
 export type ModelOutputTrust = 'untrusted'
 
+export type LiveInformationEvidence = {
+  capability: string
+  provider: string
+  sourceName: string
+  sourceUrl: string
+  observedAt: string
+  retrievedAt: string
+  validUntil?: string
+  value: string
+  trust: 'untrusted_external'
+  retention: 'ephemeral'
+}
+
 export type InteractionInput = {
   modality: Modality
   content: string
@@ -28,6 +41,7 @@ export type InteractionRequest = {
     maxEstimatedCostUsd?: number
     signal?: AbortSignal
   }
+  liveInformation?: readonly LiveInformationEvidence[]
 }
 
 export type ContextSnapshot = {
@@ -36,7 +50,7 @@ export type ContextSnapshot = {
     source: string
     classification: 'public' | 'internal' | 'confidential'
     value: string
-    kind?: 'trusted_session' | 'memory' | 'history' | 'external'
+    kind?: 'trusted_session' | 'memory' | 'history' | 'external' | 'live_information'
     trust?: 'trusted' | 'contextual' | 'untrusted_external'
     provenance?: {
       sourceKind: string

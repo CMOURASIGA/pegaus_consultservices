@@ -101,6 +101,29 @@ describe('ChatService', () => {
     expect(store.messages).toHaveLength(2)
   })
 
+  it('keeps live information ephemeral and out of memory curation', async () => {
+    const store = new MemoryChatStore()
+    const curator = { capture: vi.fn() }
+    const liveInformation = { resolve: vi.fn().mockResolvedValue({ status: 'available', evidence: [{ capability: 'weather', provider: 'test-weather', sourceName: 'Test Weather', sourceUrl: 'https://weather.test/forecast', observedAt: '2026-09-17T09:00:00Z', retrievedAt: '2026-09-17T09:01:00Z', validUntil: '2026-09-17T09:31:00Z', value: '18 °C', trust: 'untrusted_external', retention: 'ephemeral' }] }) }
+    const handle = vi.fn().mockResolvedValue({ content: '18 °C. Fonte: Test Weather, consultada às 09:01.', route: { provider: 'pegasus-fake', model: 'local-safe-v1' } })
+    const result = await new ChatService(store, { handle }, curator, false, liveInformation).send({ actorId: 'owner-a', content: 'Como está o tempo em Curitiba?' })
+    expect(curator.capture).not.toHaveBeenCalled()
+    expect(handle).toHaveBeenCalledWith(expect.objectContaining({ liveInformation: [expect.objectContaining({ capability: 'weather', retention: 'ephemeral' })] }))
+    expect(result.memory).toEqual({ action: 'discard', reason: 'live_information_ephemeral' })
+  })
+
+  it('uses deterministic safe failure when live information is unavailable', async () => {
+    const store = new MemoryChatStore()
+    const handle = vi.fn()
+    const curator = { capture: vi.fn() }
+    const liveInformation = { resolve: vi.fn().mockResolvedValue({ status: 'unavailable', message: 'A fonte não respondeu; não vou estimar dados.' }) }
+    const result = await new ChatService(store, { handle }, curator, false, liveInformation).send({ actorId: 'owner-a', content: 'Vai chover em Recife?' })
+    expect(result.assistantMessage.content).toContain('não vou estimar')
+    expect(result.provider).toBe('pegasus-live-information')
+    expect(handle).not.toHaveBeenCalled()
+    expect(curator.capture).not.toHaveBeenCalled()
+  })
+
   it('resolves “lembre disso” from the preceding owner message', async () => {
     const store = new MemoryChatStore()
     const conversation = await store.createConversation('owner-a', 'Projeto')
