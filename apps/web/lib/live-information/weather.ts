@@ -26,7 +26,7 @@ export function isWeatherEvidence(output: readonly LiveInformationEvidence[]) {
   return output.length > 0 && output.every((item) => item.capability === weatherCapability.id && item.provider === weatherCapability.provider && item.trust === 'untrusted_external' && item.retention === 'ephemeral' && Boolean(item.sourceName && item.sourceUrl && item.observedAt && item.retrievedAt && item.validUntil && item.value))
 }
 
-type GeocodingResult = { name: string; latitude: number; longitude: number; country?: string; admin1?: string; timezone?: string }
+type GeocodingResult = { name: string; latitude: number; longitude: number; country?: string; admin1?: string; timezone?: string; population?: number }
 type ForecastResponse = { timezone?: string; current?: { time?: string; temperature_2m?: number; apparent_temperature?: number; precipitation?: number; weather_code?: number; wind_speed_10m?: number }; current_units?: Record<string, string>; daily?: { time?: string[]; temperature_2m_max?: number[]; temperature_2m_min?: number[]; precipitation_probability_max?: number[]; weather_code?: number[] }; daily_units?: Record<string, string> }
 
 const weatherLabels: Record<number, string> = { 0: 'céu limpo', 1: 'predominantemente limpo', 2: 'parcialmente nublado', 3: 'nublado', 45: 'neblina', 48: 'neblina com geada', 51: 'garoa leve', 53: 'garoa moderada', 55: 'garoa intensa', 61: 'chuva leve', 63: 'chuva moderada', 65: 'chuva forte', 71: 'neve leve', 73: 'neve moderada', 75: 'neve forte', 80: 'pancadas leves', 81: 'pancadas moderadas', 82: 'pancadas fortes', 95: 'trovoadas' }
@@ -55,10 +55,13 @@ export class OpenMeteoWeatherProvider implements CapabilityProviderPort {
     const results = geocode.results ?? []
     if (!results.length) throw new CapabilityInputError(`Não encontrei uma localidade confiável para “${input.location}”. Informe cidade, estado ou país com mais detalhes.`)
     const exact = results.filter((item) => normalized(item.name) === normalized(searchName ?? input.location))
-    if (!input.location.includes(',') && exact.length > 1 && new Set(exact.map((item) => `${item.admin1 ?? ''}:${item.country ?? ''}`)).size > 1) throw new CapabilityInputError(`Encontrei mais de uma localidade chamada “${input.location}”. Informe também o estado ou país.`)
+    const rankedExact = [...exact].sort((left, right) => (right.population ?? 0) - (left.population ?? 0))
+    const [firstExact, secondExact] = rankedExact
+    const dominantPopulation = Boolean(firstExact?.population && secondExact?.population && firstExact.population >= 100_000 && firstExact.population >= secondExact.population * 3)
+    if (!input.location.includes(',') && exact.length > 1 && !dominantPopulation && new Set(exact.map((item) => `${item.admin1 ?? ''}:${item.country ?? ''}`)).size > 1) throw new CapabilityInputError(`Encontrei mais de uma localidade chamada “${input.location}”. Informe também o estado ou país.`)
     const qualifiedPlace = qualifier ? exact.find((item) => normalized(`${item.admin1 ?? ''} ${item.country ?? ''}`).includes(qualifier)) : undefined
     if (qualifier && exact.length && !qualifiedPlace) throw new CapabilityInputError(`Não consegui confirmar “${input.location}”. Revise a cidade, estado ou país.`)
-    const place = qualifiedPlace ?? exact[0] ?? results[0]!
+    const place = qualifiedPlace ?? firstExact ?? results[0]!
 
     const forecastUrl = new URL('https://api.open-meteo.com/v1/forecast')
     forecastUrl.search = new URLSearchParams({ latitude: String(place.latitude), longitude: String(place.longitude), current: 'temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m', daily: 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code', timezone: 'auto', forecast_days: '16' }).toString()

@@ -41,4 +41,12 @@ describe('CapabilityRouter', () => {
     await expect(new CapabilityRouter(registry(provider), { select: async () => ({ status: 'none' }) }).route(request)).resolves.toEqual({ status: 'not_applicable' })
     expect(provider.execute).not.toHaveBeenCalled()
   })
+
+  it('returns a correlated expiring pending interaction when required input is missing', async () => {
+    const provider: CapabilityProviderPort = { id: 'weather-test', health: async () => 'available', execute: vi.fn() }
+    const selector = { select: async () => ({ status: 'needs_input' as const, capabilityId: 'live.weather', intent: 'consultar previsão', knownParameters: { date: 'tomorrow' }, missingParameters: ['location'], message: 'Para qual cidade?' }) }
+    const result = await new CapabilityRouter(registry(provider), selector, undefined, () => new Date('2026-09-17T12:05:00Z')).route({ ...request, conversationId: '11111111-1111-4111-8111-111111111111' })
+    expect(result).toMatchObject({ status: 'needs_input', pending: { conversationId: '11111111-1111-4111-8111-111111111111', capabilityId: 'live.weather', knownParameters: { date: 'tomorrow' }, missingParameters: ['location'], correlationId: 'corr', expiresAt: '2026-09-17T12:35:00.000Z' } })
+    expect(provider.execute).not.toHaveBeenCalled()
+  })
 })

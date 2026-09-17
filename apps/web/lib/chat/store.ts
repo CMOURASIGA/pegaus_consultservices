@@ -3,8 +3,10 @@ import 'server-only'
 import { AppError } from '@pegasus/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ChatAttachment, ChatConversation, ChatMessage, ChatStore } from './types'
+import type { ConversationWorkingContext } from '@pegasus/core'
 
 type ConversationRow = { id: string; title: string | null; updated_at: string }
+type ConversationMetadataRow = { metadata: Record<string, unknown> | null }
 type MessageRow = { id: string; conversation_id: string; role: string; content: string | null; created_at: string; metadata: { correlation_id?: string; attachments?: ChatAttachment[]; live_information?: ChatMessage['liveInformation'] } | null }
 
 const toConversation = (row: ConversationRow): ChatConversation => ({ id: row.id, title: row.title, updatedAt: row.updated_at })
@@ -37,6 +39,23 @@ export class SupabaseChatStore implements ChatStore {
     const { data, error } = await this.client.from('conversations').insert({ owner_id: ownerId, title, channel: 'web', status: 'active', retention_mode: 'curated', metadata: {} }).select('id, title, updated_at').single()
     if (error) throw new AppError('CONVERSATION_CREATE_FAILED', 'Não foi possível iniciar a conversa.', 503)
     return toConversation(data as ConversationRow)
+  }
+
+  async getWorkingContext(ownerId: string, conversationId: string) {
+    const { data, error } = await this.client.from('conversations').select('metadata').eq('owner_id', ownerId).eq('id', conversationId).maybeSingle()
+    if (error) throw new AppError('CHAT_READ_FAILED', 'Não foi possível carregar o contexto da conversa.', 503)
+    const value = (data as ConversationMetadataRow | null)?.metadata?.conversation_working_context
+    return value && typeof value === 'object' ? value as ConversationWorkingContext : null
+  }
+
+  async saveWorkingContext(ownerId: string, conversationId: string, context: ConversationWorkingContext | null) {
+    const { data, error: readError } = await this.client.from('conversations').select('metadata').eq('owner_id', ownerId).eq('id', conversationId).maybeSingle()
+    if (readError || !data) throw new AppError('CHAT_CONTEXT_UPDATE_FAILED', 'Não foi possível atualizar o contexto da conversa.', 503)
+    const metadata = { ...((data as ConversationMetadataRow).metadata ?? {}) }
+    if (context) metadata.conversation_working_context = context
+    else delete metadata.conversation_working_context
+    const { error } = await this.client.from('conversations').update({ metadata }).eq('owner_id', ownerId).eq('id', conversationId)
+    if (error) throw new AppError('CHAT_CONTEXT_UPDATE_FAILED', 'Não foi possível atualizar o contexto da conversa.', 503)
   }
 
   async createMessage(input: { ownerId: string; conversationId: string; role: 'user' | 'assistant'; content: string; correlationId: string; provider?: string; model?: string; attachments?: ChatAttachment[]; liveInformation?: ChatMessage['liveInformation'] }) {

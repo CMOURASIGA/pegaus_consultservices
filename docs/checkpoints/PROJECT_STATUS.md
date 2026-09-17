@@ -18,9 +18,11 @@ Atualizado em 2026-09-17.
 
 ## Implementado, aguardando Human Validation
 
-- `P2 - DIGITAL PRESENCE + CAPABILITY ROUTING`: presença central preparada para asset oficial, shell unificado, temas, estados reais e responsividade;
-- Capability Registry e seleção semântica estruturada, com Weather como primeiro E2E de Live Information;
-- provenance, freshness, audit/correlation, provider substituível, falha fechada e exclusão de Live Information da curadoria automática de Memory.
+- `P2.1 - CONVERSATION INTELLIGENCE + RESEARCH ROUTING`: Conversation como memória de trabalho, pending interaction estruturado e contexto limitado para o selector;
+- continuidade de capability e parâmetros na mesma Conversation entre Chat, Home e Voice, com ruptura explícita em `Nova conversa`;
+- Capability Registry e seleção semântica estruturada, com Weather multi-turn e single-turn como primeiro E2E de Live Information;
+- provenance, freshness, audit/correlation, provider substituível, falha fechada e exclusão de Live Information da curadoria automática de Memory;
+- presença central continua preparada para o asset oficial, que permanece pendente do PO e não bloqueia P2.1.
 
 ## Bloqueado deliberadamente
 
@@ -31,4 +33,4 @@ Atualizado em 2026-09-17.
 
 ## Próximo checkpoint
 
-`P2 - DIGITAL PRESENCE + CAPABILITY ROUTING READY FOR HUMAN VALIDATION`. Após a publicação do Preview, parar para validação humana antes de qualquer incremento posterior.
+`P2.1 - CONVERSATION INTELLIGENCE + RESEARCH ROUTING READY FOR HUMAN VALIDATION`. Após a publicação do Preview, parar para validação humana antes de qualquer incremento posterior.

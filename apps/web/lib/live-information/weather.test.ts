@@ -32,6 +32,12 @@ describe('Weather capability provider', () => {
     await expect(mockProvider(ambiguous).execute({ location: 'Springfield', date: 'current' }, { correlationId: 'corr' })).rejects.toBeInstanceOf(CapabilityInputError)
   })
 
+  it('accepts a normal well-ranked city name without forcing artificial qualifiers', async () => {
+    const places = [{ name: 'Rio de Janeiro', admin1: 'Rio de Janeiro', country: 'Brasil', latitude: -22.9, longitude: -43.2, timezone: 'America/Sao_Paulo', population: 6_700_000 }, { name: 'Rio de Janeiro', admin1: 'Goiás', country: 'Brasil', latitude: -15, longitude: -48, timezone: 'America/Sao_Paulo', population: 1_000 }]
+    const result = await mockProvider(places).execute({ location: 'Rio de Janeiro', date: 'tomorrow' }, { correlationId: 'corr' })
+    expect(result[0]?.value).toContain('Local: Rio de Janeiro, Rio de Janeiro, Brasil')
+  })
+
   it('fails closed when the provider is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('private provider detail')))
     await expect(new OpenMeteoWeatherProvider().execute({ location: 'Curitiba', date: 'current' }, { correlationId: 'corr' })).rejects.toThrow()

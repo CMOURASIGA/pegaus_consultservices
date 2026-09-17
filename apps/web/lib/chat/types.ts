@@ -23,6 +23,7 @@ export type SendChatInput = {
   conversationId?: string
   signal?: AbortSignal
   attachments?: ChatAttachment[]
+  timeZone?: string
 }
 
 export type SendChatResult = {
@@ -40,5 +41,8 @@ export interface ChatStore {
   getConversation(ownerId: string, conversationId: string): Promise<ChatConversation | null>
   listMessages(ownerId: string, conversationId: string): Promise<ChatMessage[]>
   createConversation(ownerId: string, title: string): Promise<ChatConversation>
+  getWorkingContext(ownerId: string, conversationId: string): Promise<ConversationWorkingContext | null>
+  saveWorkingContext(ownerId: string, conversationId: string, context: ConversationWorkingContext | null): Promise<void>
   createMessage(input: { ownerId: string; conversationId: string; role: 'user' | 'assistant'; content: string; correlationId: string; provider?: string; model?: string; attachments?: ChatAttachment[]; liveInformation?: ChatMessage['liveInformation'] }): Promise<ChatMessage>
 }
+import type { ConversationWorkingContext } from '@pegasus/core'

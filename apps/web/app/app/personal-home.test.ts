@@ -42,7 +42,7 @@ describe('Personal Home foundation', () => {
     expect(chatShell).toContain('void startVoice()')
     expect(chatShell).toContain("voiceSurface || homeSurface")
     expect(chatShell).toContain("body.set('timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')")
-    expect(header).toContain("{ area: 'history', href: '/app/chat', label: 'Histórico' }")
+    expect(header).toContain("href: conversationId ? `/app/chat?conversation=${conversationId}` : '/app/chat'")
     expect(chatShell).toContain("action=\"/app/chat\"")
     expect(chatShell).toContain("name=\"message\"")
   })

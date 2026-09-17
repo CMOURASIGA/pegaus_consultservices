@@ -6,6 +6,7 @@ import { readServerConfig } from '@pegasus/config'
 import { logger } from '@pegasus/logging'
 import { AppError } from '@pegasus/shared'
 import type { ChatStore, SendChatInput, SendChatResult } from './types'
+import { buildConversationWorkingContext } from './working-context'
 
 const fakeModel = {
   provider: 'pegasus-fake', model: 'local-safe-v1', enabled: true,
@@ -63,13 +64,23 @@ export class ChatService {
       ? await this.store.getConversation(input.actorId, input.conversationId)
       : await this.store.createConversation(input.actorId, titleFrom(content))
     if (!conversation) throw new AppError('CONVERSATION_NOT_FOUND', 'Conversa não encontrada.', 404)
+    const priorMessages = await this.store.listMessages(input.actorId, conversation.id)
+    const storedWorkingContext = await this.store.getWorkingContext(input.actorId, conversation.id)
+    const workingContext = buildConversationWorkingContext({ conversationId: conversation.id, messages: priorMessages, stored: storedWorkingContext })
     const referenceMessage = isDeicticMemoryRequest(content)
-      ? (await this.store.listMessages(input.actorId, conversation.id)).filter((message) => message.role === 'user').at(-1)
+      ? priorMessages.filter((message) => message.role === 'user').at(-1)
       : undefined
     const userMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'user', content, correlationId, attachments: input.attachments })
     const hasImage = input.attachments?.some((item) => item.mediaType.startsWith('image/')) ?? false
-    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: this.allowPaidModels, signal: input.signal } }
-    const live = await this.capabilityRouter?.route(request) ?? { status: 'not_applicable' as const }
+    const request: InteractionRequest = { id: crypto.randomUUID(), correlationId, actorId: input.actorId, conversationId: conversation.id, input: { modality: 'text', content, attachments: input.attachments?.map((item) => ({ id: item.id, mediaType: item.mediaType })) }, requirements: { capability: input.attachments?.length ? 'multimodal' : 'balanced', quality: 'standard', latency: 'normal', requiredModalities: hasImage ? ['text', 'image'] : ['text'] }, execution: { allowPaidModels: this.allowPaidModels, signal: input.signal }, trustedSession: { nowIso: new Date().toISOString(), timeZone: input.timeZone ?? 'UTC' } }
+    const live = await this.capabilityRouter?.route(request, workingContext) ?? { status: 'not_applicable' as const }
+    if (live.status === 'needs_input') {
+      await this.store.saveWorkingContext(input.actorId, conversation.id, { recentTurns: [], pending: live.pending, activeCapability: workingContext.activeCapability })
+    } else if (live.status === 'available') {
+      await this.store.saveWorkingContext(input.actorId, conversation.id, { recentTurns: [], activeCapability: { capabilityId: live.capability.id, intent: workingContext.pending?.intent ?? workingContext.activeCapability?.intent ?? 'consultar informação atual', knownParameters: live.resolvedInput, updatedAt: new Date().toISOString() } })
+    } else if (live.status === 'not_applicable' && (workingContext.pending || workingContext.activeCapability)) {
+      await this.store.saveWorkingContext(input.actorId, conversation.id, null)
+    }
     if (live.status === 'needs_input' || live.status === 'unavailable') {
       const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: live.message, correlationId, provider: 'pegasus-live-information', model: 'deterministic-safe-failure' })
       return { conversation, userMessage, assistantMessage, correlationId, provider: 'pegasus-live-information', model: 'deterministic-safe-failure', memory: { action: 'discard', reason: 'live_information_ephemeral' } }

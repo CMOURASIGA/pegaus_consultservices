@@ -42,6 +42,10 @@ export type InteractionRequest = {
     signal?: AbortSignal
   }
   liveInformation?: readonly LiveInformationEvidence[]
+  trustedSession?: {
+    nowIso: string
+    timeZone: string
+  }
 }
 
 export type ContextSnapshot = {

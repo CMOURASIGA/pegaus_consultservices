@@ -30,7 +30,7 @@ export function usePegasusTheme() {
   return { theme, toggleTheme }
 }
 
-export function PegasusHeader({ current, theme, onToggleTheme }: { current: PegasusArea; theme: PegasusTheme; onToggleTheme(): void }) {
+export function PegasusHeader({ current, theme, onToggleTheme, conversationId }: { current: PegasusArea; theme: PegasusTheme; onToggleTheme(): void; conversationId?: string }) {
   const [clock, setClock] = useState('')
 
   useEffect(() => {
@@ -41,11 +41,11 @@ export function PegasusHeader({ current, theme, onToggleTheme }: { current: Pega
   }, [])
 
   const links: Array<{ area: PegasusArea; href: string; label: string }> = [
-    { area: 'pegasus', href: '/app', label: 'Pegasus' },
+    { area: 'pegasus', href: conversationId ? `/app?conversation=${conversationId}` : '/app', label: 'Pegasus' },
     { area: 'memory', href: '/memory', label: 'Memória' },
-    { area: 'history', href: '/app/chat', label: 'Histórico' },
+    { area: 'history', href: conversationId ? `/app/chat?conversation=${conversationId}` : '/app/chat', label: 'Histórico' },
     { area: 'knowledge', href: '/knowledge', label: 'Knowledge' },
   ]
 
-  return <header className="digital-home-header"><Link className="digital-brand" href="/app"><Image src="/icon.svg" alt="" width={36} height={36} priority /><strong>Pegasus</strong></Link><nav aria-label="Navegação principal">{links.map((link) => <Link className={current === link.area ? 'active' : ''} href={link.href} key={link.area}>{link.label}</Link>)}</nav><div className="digital-header-actions"><time>{clock}</time><button type="button" onClick={onToggleTheme} aria-label={`Ativar tema ${theme === 'dark' ? 'claro' : 'escuro'}`}>{theme === 'dark' ? '☀' : '☾'}</button><form action="/auth/logout" method="post"><button type="submit">Sair</button></form></div></header>
+  return <header className="digital-home-header"><Link className="digital-brand" href={conversationId ? `/app?conversation=${conversationId}` : '/app'}><Image src="/icon.svg" alt="" width={36} height={36} priority /><strong>Pegasus</strong></Link><nav aria-label="Navegação principal">{links.map((link) => <Link className={current === link.area ? 'active' : ''} href={link.href} key={link.area}>{link.label}</Link>)}</nav><div className="digital-header-actions"><time>{clock}</time><button type="button" onClick={onToggleTheme} aria-label={`Ativar tema ${theme === 'dark' ? 'claro' : 'escuro'}`}>{theme === 'dark' ? '☀' : '☾'}</button><form action="/auth/logout" method="post"><button type="submit">Sair</button></form></div></header>
 }

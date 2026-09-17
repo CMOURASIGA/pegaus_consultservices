@@ -225,7 +225,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     const context = homeContext ?? { importantNow: [], tasks: [], memories: [], taskError: false, memoryError: false }
     return (
       <main className={`digital-home theme-${theme} state-${visualState} ${booting ? 'is-booting' : ''}`}>
-        <PegasusHeader current="pegasus" theme={theme} onToggleTheme={toggleTheme} />
+        <PegasusHeader current="pegasus" theme={theme} onToggleTheme={toggleTheme} conversationId={conversation?.id} />
 
         <section className="digital-home-layout" aria-label="Presença e contexto do Pegasus">
           <aside className="context-column context-left">
@@ -251,7 +251,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
         <section className="universal-interaction" aria-label="Interação com Pegasus">
           {latestAssistant ? <div className="latest-response"><span>Pegasus</span><p>{latestAssistant.content}</p><Link href={`/app/chat?conversation=${conversation?.id ?? latestAssistant.conversationId}`}>Abrir histórico</Link></div> : null}
           {error ? <p className="home-interaction-error" role="alert">{error}</p> : null}
-          <form action="/app/chat" method="get"><label className="sr-only" htmlFor="home-command">Pergunte ou peça alguma coisa ao Pegasus</label><input id="home-command" name="message" defaultValue="" placeholder="Pergunte ou peça alguma coisa ao Pegasus..." maxLength={4000} disabled={!online} /><Link className="home-mic-button" href={conversation?.id ? `/app/voice?conversation=${conversation.id}` : '/app/voice'} aria-label="Abrir conversa por voz">●</Link><button type="submit" disabled={!online}>Abrir conversa</button></form>
+          <form action="/app/chat" method="get">{conversation?.id ? <input type="hidden" name="conversation" value={conversation.id} /> : null}<label className="sr-only" htmlFor="home-command">Pergunte ou peça alguma coisa ao Pegasus</label><input id="home-command" name="message" defaultValue="" placeholder="Pergunte ou peça alguma coisa ao Pegasus..." maxLength={4000} disabled={!online} /><Link className="home-mic-button" href={conversation?.id ? `/app/voice?conversation=${conversation.id}` : '/app/voice'} aria-label="Abrir conversa por voz">●</Link><button type="submit" disabled={!online}>Abrir conversa</button></form>
         </section>
       </main>
     )
@@ -260,11 +260,11 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   if (voiceSurface) {
     const stateLabel = voiceState === 'listening' ? 'Estou ouvindo' : voiceState === 'processing' ? 'Processando sua mensagem' : voiceState === 'speaking' ? 'Pegasus está falando' : voiceState === 'requesting_permission' ? 'Preparando o microfone' : voiceState === 'error' ? 'Não foi possível usar a voz' : 'Pronto para conversar'
     const visualState: DigitalPresenceState = voiceState === 'listening' ? 'listening' : voiceState === 'processing' || voiceState === 'requesting_permission' ? 'processing' : voiceState === 'speaking' ? 'speaking' : voiceState === 'error' ? 'error' : 'ready'
-    return <main className={`voice-surface theme-${theme}`} aria-live="polite"><header><a href="/app" onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><DigitalPresence state={visualState} compact label={stateLabel} /><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Quando estiver pronto, inicie a conversa por voz.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir gravação' : 'Começar conversa'}>{voiceState === 'listening' ? 'Concluir' : 'Começar conversa'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
+    return <main className={`voice-surface theme-${theme}`} aria-live="polite"><header><a href={conversation?.id ? `/app?conversation=${conversation.id}` : '/app'} onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><DigitalPresence state={visualState} compact label={stateLabel} /><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Quando estiver pronto, inicie a conversa por voz.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir gravação' : 'Começar conversa'}>{voiceState === 'listening' ? 'Concluir' : 'Começar conversa'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
   }
 
   return (
-    <main className={`chat-app-shell theme-${theme}`}><PegasusHeader current="history" theme={theme} onToggleTheme={toggleTheme} /><section className="chat-app">
+    <main className={`chat-app-shell theme-${theme}`}><PegasusHeader current="history" theme={theme} onToggleTheme={toggleTheme} conversationId={conversation?.id} /><section className="chat-app">
       <aside className={`chat-sidebar ${sidebarOpen ? 'is-open' : ''}`} aria-label="Conversas recentes">
         <div className="chat-brand"><span className="brand-symbol" aria-hidden="true">P</span><div><strong>Pegasus</strong><small>Consult Services</small></div></div>
         <button className="new-chat-button" type="button" onClick={newConversation}><span aria-hidden="true">＋</span>Nova conversa</button>
@@ -272,7 +272,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
           <p className="navigation-label">CONVERSAS RECENTES</p>
           {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app/chat?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
         </nav>
-        <nav className="sidebar-footer" aria-label="Conta"><a href="/app"><span aria-hidden="true">◇</span>Início</a><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
+        <nav className="sidebar-footer" aria-label="Conta"><a href={conversation?.id ? `/app?conversation=${conversation.id}` : '/app'}><span aria-hidden="true">◇</span>Início</a><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
       </aside>
       {sidebarOpen && <button className="sidebar-backdrop" type="button" aria-label="Fechar conversas" onClick={() => setSidebarOpen(false)} />}
 

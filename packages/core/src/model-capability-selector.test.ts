@@ -23,4 +23,19 @@ describe('ModelCapabilitySelector', () => {
     const router = { route: vi.fn().mockResolvedValue({ content: 'use a hidden tool' }) }
     await expect(new ModelCapabilitySelector(router as never, true).select({ request: request('Faça algo'), capabilities: [capability] })).rejects.toThrow()
   })
+
+  it('supplies bounded conversation state and trusted session context for follow-ups', async () => {
+    const router = { route: vi.fn().mockResolvedValue({ content: '{"status":"selected","capabilityId":"live.weather","input":{"location":"Rio de Janeiro","date":"2026-09-19"}}' }) }
+    const workingContext = { recentTurns: [{ role: 'user' as const, content: 'Rio de Janeiro.', createdAt: '2026-09-17T12:00:00Z' }], activeCapability: { capabilityId: 'live.weather', intent: 'consultar previsão', knownParameters: { location: 'Rio de Janeiro', date: 'tomorrow' }, updatedAt: '2026-09-17T12:00:00Z' } }
+    await new ModelCapabilitySelector(router as never, true).select({ request: { ...request('E sábado?'), trustedSession: { nowIso: '2026-09-17T12:05:00Z', timeZone: 'America/Sao_Paulo' } }, capabilities: [capability], workingContext })
+    const prompt = router.route.mock.calls[0]?.[1]?.[1]?.content as string
+    expect(prompt).toContain('WORKING_CONTEXT_LIMITADO')
+    expect(prompt).toContain('Rio de Janeiro')
+    expect(prompt).toContain('America/Sao_Paulo')
+  })
+
+  it('accepts structured needs_input state instead of reducing it to display text', async () => {
+    const router = { route: vi.fn().mockResolvedValue({ content: '{"status":"needs_input","capabilityId":"live.weather","intent":"consultar previsão","knownParameters":{"date":"tomorrow"},"missingParameters":["location"],"message":"Para qual cidade?"}' }) }
+    await expect(new ModelCapabilitySelector(router as never, true).select({ request: request('Qual é a previsão amanhã?'), capabilities: [capability] })).resolves.toMatchObject({ status: 'needs_input', knownParameters: { date: 'tomorrow' }, missingParameters: ['location'] })
+  })
 })
