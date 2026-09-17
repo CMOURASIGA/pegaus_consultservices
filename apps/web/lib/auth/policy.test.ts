@@ -21,13 +21,15 @@ describe('authentication policy', () => {
     expect(isActiveProfile(undefined)).toBe(false)
   })
 
-  it('protects private routes and handles expired or revoked sessions', () => {
+  it('protects root and private routes and handles expired or revoked sessions', () => {
+    expect(sessionFailure('/', false)).toBe('auth_required')
     expect(sessionFailure('/app', false)).toBe('auth_required')
     expect(sessionFailure('/sessions', true, 'suspended')).toBe('account_unavailable')
     expect(sessionFailure('/security/mfa', true, 'active', true)).toBe('session_revoked')
     expect(sessionFailure('/memory', false)).toBe('auth_required')
     expect(sessionFailure('/knowledge', false)).toBe('auth_required')
     expect(sessionFailure('/app', true, 'active')).toBeNull()
+    expect(sessionFailure('/', true, 'active')).toBeNull()
     expect(sessionFailure('/login', false)).toBeNull()
   })
 })
