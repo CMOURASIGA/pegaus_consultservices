@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BrowserTextToSpeech, BrowserVoiceCapture, FakeSpeechToText, ServerSpeechToText, VoiceActivityDetector, mapMicrophoneError } from './browser'
+import { BrowserTextToSpeech, BrowserVoiceCapture, FakeSpeechToText, ServerSpeechToText, VoiceActivityDetector, mapMicrophoneError, toSpeechText } from './browser'
 
 describe('voice provider boundaries', () => {
   it('maps denied microphone access without exposing browser details', () => {
@@ -46,6 +46,13 @@ describe('voice provider boundaries', () => {
     expect(output.isAvailable()).toBe(false)
     output.speak('Resposta', { onEnd: () => { ended = true }, onError: () => undefined })
     expect(ended).toBe(true)
+  })
+
+  it('normalizes markdown for speech without changing the persisted representation', () => {
+    const markdown = '# Plano **atual**\n- Revisar [documento](https://example.test)\n- Usar `Supabase`'
+    expect(toSpeechText(markdown)).toBe('Plano atual; Revisar documento; Usar Supabase')
+    expect(markdown).toContain('**atual**')
+    expect(markdown).toContain('[documento](https://example.test)')
   })
 
   it('ends automatically only after speech followed by silence', () => {

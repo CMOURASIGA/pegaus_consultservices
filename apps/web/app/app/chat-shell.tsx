@@ -13,15 +13,18 @@ type Props = {
   conversations: ChatConversation[]
   activeConversation: ChatConversation | null
   initialMessages: ChatMessage[]
+  initialDraft?: string
+  initialVoiceIntent?: boolean
+  voiceSurface?: boolean
 }
 
 type RequestError = { error?: { code?: string; message?: string } }
 
-export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages }: Props) {
+export function ChatShell({ displayName, conversations: initialConversations, activeConversation: initialConversation, initialMessages, initialDraft = '', initialVoiceIntent = false, voiceSurface = false }: Props) {
   const [conversations, setConversations] = useState(initialConversations)
   const [conversation, setConversation] = useState(initialConversation)
   const [messages, setMessages] = useState(initialMessages)
-  const [content, setContent] = useState('')
+  const [content, setContent] = useState(initialDraft)
   const [retryContent, setRetryContent] = useState('')
   const [status, setStatus] = useState<'ready' | 'processing' | 'error' | 'cancelled'>('ready')
   const [error, setError] = useState('')
@@ -38,6 +41,8 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const messageRegionRef = useRef<HTMLDivElement | null>(null)
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
   const shouldFollowMessages = useRef(true)
+  const voiceIntentStarted = useRef(false)
+  const startVoiceFromIntent = useRef<() => void>(() => undefined)
 
   useEffect(() => {
     const region = messageRegionRef.current
@@ -57,13 +62,18 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     voiceCapture.current?.cancel()
     voiceOutput.current?.cancel()
   }, [])
+  useEffect(() => {
+    if (!initialVoiceIntent || voiceIntentStarted.current) return
+    voiceIntentStarted.current = true
+    startVoiceFromIntent.current()
+  }, [initialVoiceIntent])
 
   function newConversation() {
     controller.current?.abort()
     cancelVoice(false)
     shouldFollowMessages.current = true
     setConversation(null); setMessages([]); setContent(''); setFiles([]); setError(''); setMemoryNotice(''); setStatus('ready'); setSidebarOpen(false)
-    window.history.replaceState({}, '', '/app')
+    window.history.replaceState({}, '', voiceSurface ? '/app/voice' : '/app/chat')
   }
 
   async function sendMessage(value: string, speakResponse = false) {
@@ -75,14 +85,14 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     setMessages((current) => [...current, optimistic]); setContent(''); setRetryContent(outgoing); setError(''); setStatus('processing')
     const abortController = new AbortController(); controller.current = abortController
     try {
-      const body = new FormData(); body.set('content', outgoing); if (conversation?.id) body.set('conversationId', conversation.id); selectedFiles.forEach((file) => body.append('attachments', file))
+      const body = new FormData(); body.set('content', outgoing); body.set('timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'); if (conversation?.id) body.set('conversationId', conversation.id); selectedFiles.forEach((file) => body.append('attachments', file))
       const response = await fetch('/api/chat', { method: 'POST', body, signal: abortController.signal })
       const payload = await response.json() as SendChatResult & RequestError
       if (!response.ok) throw new Error(payload.error?.message ?? 'Não foi possível concluir a mensagem.')
       setConversation(payload.conversation)
       setMessages((current) => [...current.filter((item) => item.id !== optimistic.id), payload.userMessage, payload.assistantMessage])
       setConversations((current) => [payload.conversation, ...current.filter((item) => item.id !== payload.conversation.id)])
-      window.history.replaceState({}, '', `/app?conversation=${payload.conversation.id}`)
+      window.history.replaceState({}, '', `${voiceSurface ? '/app/voice' : '/app/chat'}?conversation=${payload.conversation.id}`)
       setFiles([]); setRetryContent(''); setStatus('ready')
       setMemoryNotice(payload.memory.action === 'persist'
         ? 'Memória guardada. Você pode revisar ou corrigir esse item na área Memória.'
@@ -116,7 +126,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     if (!output.isAvailable()) { setVoiceState('idle'); setVoiceMessage('Resposta criada. A leitura em voz não está disponível neste navegador.'); return }
     setVoiceState('speaking'); setVoiceMessage('Pegasus está respondendo em voz. Toque no microfone para interromper.')
     output.speak(text, {
-      onEnd: () => { setVoiceState('idle'); setVoiceMessage('') },
+      onEnd: () => { if (voiceSurface) void startVoice(); else { setVoiceState('idle'); setVoiceMessage('') } },
       onError: () => { setVoiceState('error'); setVoiceMessage('A resposta foi criada, mas não pôde ser reproduzida em voz.') },
     })
   }
@@ -136,6 +146,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       voiceCapture.current = null
     }
   }
+  startVoiceFromIntent.current = () => { void startVoice() }
 
   async function finishVoice() {
     const capture = voiceCapture.current
@@ -179,6 +190,11 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     setFiles(next); setError(''); event.target.value = ''
   }
 
+  if (voiceSurface) {
+    const stateLabel = voiceState === 'listening' ? 'Estou ouvindo' : voiceState === 'processing' ? 'Processando sua mensagem' : voiceState === 'speaking' ? 'Pegasus está falando' : voiceState === 'requesting_permission' ? 'Preparando o microfone' : voiceState === 'error' ? 'Não foi possível usar a voz' : 'Pronto para conversar'
+    return <main className="voice-surface" aria-live="polite"><header><a href="/app" onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><span className={`voice-hud ${voiceState}`} aria-hidden="true"><i className="voice-hud-ring outer" /><i className="voice-hud-ring middle" /><i className="voice-hud-ring inner" /><i className="voice-hud-core" /></span><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Quando estiver pronto, inicie a conversa por voz.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir gravação' : 'Começar conversa'}>{voiceState === 'listening' ? 'Concluir' : 'Começar conversa'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
+  }
+
   return (
     <main className="chat-app">
       <aside className={`chat-sidebar ${sidebarOpen ? 'is-open' : ''}`} aria-label="Conversas recentes">
@@ -186,9 +202,9 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
         <button className="new-chat-button" type="button" onClick={newConversation}><span aria-hidden="true">＋</span>Nova conversa</button>
         <nav className="conversation-list" aria-label="Histórico recente">
           <p className="navigation-label">CONVERSAS RECENTES</p>
-          {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
+          {conversations.length === 0 ? <p className="sidebar-empty">Suas conversas aparecerão aqui.</p> : conversations.map((item) => <a className={item.id === conversation?.id ? 'conversation-link active' : 'conversation-link'} href={`/app/chat?conversation=${item.id}`} key={item.id}>{item.title || 'Conversa sem título'}</a>)}
         </nav>
-        <nav className="sidebar-footer" aria-label="Conta"><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
+        <nav className="sidebar-footer" aria-label="Conta"><a href="/app"><span aria-hidden="true">◇</span>Início</a><a href="/memory"><span aria-hidden="true">◫</span>Memória</a><a href="/security/mfa"><span aria-hidden="true">○</span>Segurança</a><a href="/sessions"><span aria-hidden="true">▣</span>Sessões</a></nav>
       </aside>
       {sidebarOpen && <button className="sidebar-backdrop" type="button" aria-label="Fechar conversas" onClick={() => setSidebarOpen(false)} />}
 

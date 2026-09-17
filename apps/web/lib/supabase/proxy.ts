@@ -28,7 +28,7 @@ export async function updateSession(request: NextRequest, requestHeaders = new H
   if (!claims?.sub && isProtected) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('next', request.nextUrl.pathname)
+    url.searchParams.set('next', request.nextUrl.pathname === '/' ? '/app' : request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 
@@ -54,7 +54,7 @@ export async function updateSession(request: NextRequest, requestHeaders = new H
     if (!session) {
       const url = request.nextUrl.clone()
       url.pathname = '/auth/bootstrap'
-      url.searchParams.set('next', request.nextUrl.pathname)
+      url.searchParams.set('next', request.nextUrl.pathname === '/' ? '/app' : request.nextUrl.pathname)
       return NextResponse.redirect(url)
     }
     if (session.revoked_at) {
@@ -62,6 +62,13 @@ export async function updateSession(request: NextRequest, requestHeaders = new H
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.search = 'error=session_revoked'
+      return NextResponse.redirect(url)
+    }
+
+    if (request.nextUrl.pathname === '/') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/app'
+      url.search = ''
       return NextResponse.redirect(url)
     }
   }

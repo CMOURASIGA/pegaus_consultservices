@@ -8,6 +8,22 @@ const SILENCE_THRESHOLD = 0.018
 const SILENCE_DURATION_MS = 1_500
 const MAX_CAPTURE_DURATION_MS = 60_000
 
+export function toSpeechText(markdown: string) {
+  return markdown
+    .replace(/!\[([^\]]*)\]\([^)]*\)/gu, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/gu, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gmu, '')
+    .replace(/^\s*>\s?/gmu, '')
+    .replace(/^\s*(?:[-*+] |\d+[.)] )/gmu, '')
+    .replace(/`([^`]+)`/gu, '$1')
+    .replace(/(\*\*|__|~~)/gu, '')
+    .replace(/(?<!\w)[*_](?!\w)/gu, '')
+    .replace(/\n{2,}/gu, '. ')
+    .replace(/\n/gu, '; ')
+    .replace(/\s{2,}/gu, ' ')
+    .trim()
+}
+
 export class VoiceActivityDetector {
   private speechDetected = false
   private lastSpeechAt = 0
@@ -165,7 +181,7 @@ export class BrowserTextToSpeech implements TextToSpeechAdapter {
   speak(text: string, callbacks: { onEnd(): void; onError(): void }) {
     if (!this.isAvailable()) { callbacks.onEnd(); return }
     this.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
+    const utterance = new SpeechSynthesisUtterance(toSpeechText(text))
     utterance.lang = 'pt-BR'
     utterance.rate = 1
     utterance.onend = callbacks.onEnd
