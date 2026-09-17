@@ -57,7 +57,7 @@ export class OpenMeteoWeatherProvider implements CapabilityProviderPort {
     const exact = results.filter((item) => normalized(item.name) === normalized(searchName ?? input.location))
     const rankedExact = [...exact].sort((left, right) => (right.population ?? 0) - (left.population ?? 0))
     const [firstExact, secondExact] = rankedExact
-    const dominantPopulation = Boolean(firstExact?.population && secondExact?.population && firstExact.population >= 100_000 && firstExact.population >= secondExact.population * 3)
+    const dominantPopulation = Boolean(firstExact?.population && firstExact.population >= 100_000 && firstExact.population >= Math.max(secondExact?.population ?? 0, 1) * 3)
     if (!input.location.includes(',') && exact.length > 1 && !dominantPopulation && new Set(exact.map((item) => `${item.admin1 ?? ''}:${item.country ?? ''}`)).size > 1) throw new CapabilityInputError(`Encontrei mais de uma localidade chamada “${input.location}”. Informe também o estado ou país.`)
     const qualifiedPlace = qualifier ? exact.find((item) => normalized(`${item.admin1 ?? ''} ${item.country ?? ''}`).includes(qualifier)) : undefined
     if (qualifier && exact.length && !qualifiedPlace) throw new CapabilityInputError(`Não consegui confirmar “${input.location}”. Revise a cidade, estado ou país.`)

@@ -38,6 +38,12 @@ describe('Weather capability provider', () => {
     expect(result[0]?.value).toContain('Local: Rio de Janeiro, Rio de Janeiro, Brasil')
   })
 
+  it('uses a clearly dominant populated result when lower-ranked homonyms lack population evidence', async () => {
+    const places = [{ name: 'Niterói', admin1: 'Rio de Janeiro', country: 'Brasil', latitude: -22.88, longitude: -43.1, timezone: 'America/Sao_Paulo', population: 456_456 }, { name: 'Niterói', admin1: 'Sergipe', country: 'Brasil', latitude: -9.76, longitude: -37.43, timezone: 'America/Maceio' }]
+    const result = await mockProvider(places).execute({ location: 'Niterói', date: '2026-09-19' }, { correlationId: 'corr' })
+    expect(result[0]?.value).toContain('Local: Niterói, Rio de Janeiro, Brasil')
+  })
+
   it('fails closed when the provider is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('private provider detail')))
     await expect(new OpenMeteoWeatherProvider().execute({ location: 'Curitiba', date: 'current' }, { correlationId: 'corr' })).rejects.toThrow()
