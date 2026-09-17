@@ -1,7 +1,8 @@
-import Link from 'next/link'
-import Image from 'next/image'
+import { z } from 'zod'
 import { getVerifiedIdentity } from '../../lib/auth/server'
+import { SupabaseChatStore } from '../../lib/chat/store'
 import { SupabaseMemoryStore } from '../../lib/memory/store'
+import { ChatShell } from './chat-shell'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,7 @@ type ImportantNowItem = { id: string; title: string; detail: string; emphasis: '
 
 const activeTaskStates = ['planning', 'queued', 'running', 'waiting_external', 'waiting_approval', 'waiting_device', 'paused']
 const priorityLabel: Record<string, string> = { critical: 'Crítica', high: 'Alta', normal: 'Normal', low: 'Baixa' }
+const taskStatusLabel: Record<string, string> = { planning: 'Em planejamento', queued: 'Na fila', running: 'Em andamento', waiting_external: 'Aguardando retorno externo', waiting_approval: 'Aguardando aprovação', waiting_device: 'Aguardando dispositivo', paused: 'Pausada' }
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
@@ -33,13 +35,18 @@ function friendlyMemorySource(kind: string) {
   return 'Origem registrada'
 }
 
-export default async function AppPage() {
+export default async function AppPage({ searchParams }: { searchParams: Promise<{ conversation?: string }> }) {
   const { profile, claims, supabase } = await getVerifiedIdentity()
   const ownerId = claims.sub!
+  const requested = await searchParams
+  const conversationId = z.uuid().safeParse(requested.conversation).success ? requested.conversation : undefined
   const memoryStore = new SupabaseMemoryStore(supabase)
-  const [taskResult, memoryResult] = await Promise.allSettled([
+  const chatStore = new SupabaseChatStore(supabase)
+  const [taskResult, memoryResult, conversationsResult, activeConversationResult] = await Promise.allSettled([
     supabase.from('tasks').select('id, title, status, priority, updated_at').eq('owner_id', ownerId).in('status', activeTaskStates).order('updated_at', { ascending: false }).limit(5),
     memoryStore.listActive(ownerId, 4),
+    chatStore.listConversations(ownerId),
+    conversationId ? chatStore.getConversation(ownerId, conversationId) : Promise.resolve(null),
   ])
   const taskError = taskResult.status === 'rejected' || (taskResult.status === 'fulfilled' && taskResult.value.error)
   const memoryError = memoryResult.status === 'rejected'
@@ -47,33 +54,24 @@ export default async function AppPage() {
   const memories = memoryResult.status === 'fulfilled' ? memoryResult.value : []
   const importantNow = buildImportantNowItems(tasks)
   const displayName = profile.display_name || 'Christian'
+  const conversations = conversationsResult.status === 'fulfilled' ? conversationsResult.value : []
+  const activeConversation = activeConversationResult.status === 'fulfilled' ? activeConversationResult.value : null
+  const messages = activeConversation ? await chatStore.listMessages(ownerId, activeConversation.id) : []
 
   return (
-    <main className="personal-home">
-      <header className="home-header">
-        <Link className="home-brand" href="/app"><Image src="/icon.svg" alt="Pegasus" width={34} height={34} priority /><strong>Pegasus</strong></Link>
-        <nav aria-label="Navegação principal"><Link href="/app/chat">Chat</Link><Link href="/memory">Memória</Link><Link href="/knowledge">Knowledge</Link></nav>
-      </header>
-
-      <section className="home-hero">
-        <p className="eyebrow">SEU ESPAÇO PESSOAL</p>
-        <h1>Olá, {displayName}.</h1>
-        <p>O que você precisa resolver agora?</p>
-        <div className="home-actions"><Link className="primary-button home-voice-action" href="/app/voice"><span aria-hidden="true">◉</span> Fale com o Pegasus</Link></div>
-        <form className="home-text-entry" action="/app/chat" method="get"><label htmlFor="home-message">Ou escreva uma mensagem</label><div><input id="home-message" name="message" maxLength={4000} placeholder="Como posso ajudar?" /><button className="secondary-button" type="submit">Abrir chat</button></div></form>
-      </section>
-
-      <section className="home-grid" aria-label="Seu contexto atual">
-        <article className="home-card"><header><p className="eyebrow">O QUE IMPORTA AGORA</p><h2>Contexto prioritário</h2></header>
-          {taskError ? <p className="home-state error" role="status">Não foi possível consultar o contexto prioritário agora.</p> : importantNow.length === 0 ? <p className="home-state">Nenhum item prioritário registrado neste momento.</p> : <ul className="home-list">{importantNow.map((item) => <li key={item.id}><div><strong>{item.title}</strong><small>{item.detail}</small></div><span className="status-pill warning">{priorityLabel[item.emphasis]}</span></li>)}</ul>}
-        </article>
-        <article className="home-card"><header><p className="eyebrow">PENDÊNCIAS</p><h2>Tasks em andamento</h2></header>
-          {taskError ? <p className="home-state error" role="status">Não foi possível consultar as pendências agora.</p> : tasks.length === 0 ? <p className="home-state">Nenhuma task aberta foi registrada.</p> : <ul className="home-list">{tasks.map((task) => <li key={task.id}><div><strong>{task.title}</strong><small>{task.status.replaceAll('_', ' ')} · Atualizada em {formatDate(task.updated_at)}</small></div><span className="status-pill">{priorityLabel[task.priority] ?? task.priority}</span></li>)}</ul>}
-        </article>
-        <article className="home-card home-memory-card"><header><p className="eyebrow">MEMÓRIA RECENTE</p><h2>Contexto que você registrou</h2></header>
-          {memoryError ? <p className="home-state error" role="status">Não foi possível consultar a memória agora.</p> : memories.length === 0 ? <p className="home-state">Ainda não há memória relevante registrada. Você pode ensinar algo ao Pegasus no Chat.</p> : <ul className="home-list">{memories.map((memory) => <li key={memory.id}><div><strong>{memory.content}</strong><small>{friendlyMemorySource(memory.source.kind)}. Atualizada em {formatDate(memory.updatedAt)}</small></div><Link className="text-link" href="/memory">Ver</Link></li>)}</ul>}
-        </article>
-      </section>
-    </main>
+    <ChatShell
+      displayName={displayName}
+      conversations={conversations}
+      activeConversation={activeConversation}
+      initialMessages={messages}
+      homeSurface
+      homeContext={{
+        importantNow: importantNow.map((item) => ({ ...item, label: priorityLabel[item.emphasis] })),
+        tasks: tasks.map((task) => ({ id: task.id, title: task.title, detail: `${taskStatusLabel[task.status] ?? 'Status registrado'} · Atualizada em ${formatDate(task.updated_at)}`, label: priorityLabel[task.priority] ?? 'Prioridade registrada' })),
+        memories: memories.map((memory) => ({ id: memory.id, content: memory.content, provenance: `${friendlyMemorySource(memory.source.kind)}. Atualizada em ${formatDate(memory.updatedAt)}` })),
+        taskError: Boolean(taskError),
+        memoryError,
+      }}
+    />
   )
 }
