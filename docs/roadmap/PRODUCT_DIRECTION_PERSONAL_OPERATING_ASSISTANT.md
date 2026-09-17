@@ -1,6 +1,6 @@
 # Pegasus - Direção de Produto: Assistente Pessoal Operacional
 
-Atualizado em 2026-09-15.
+Atualizado em 2026-09-17.
 
 ## Decisão de produto
 
@@ -68,6 +68,14 @@ Memórias automáticas devem possuir provenance, confiança e política de atual
 
 Pegasus deve dizer quando não sabe em vez de preencher lacunas por inferência não fundamentada.
 
+## Informação atual e capabilities
+
+Memory e Knowledge não substituem fontes externas atuais. Quando uma solicitação depender de informação ausente ou mutável, Pegasus deve reconhecer essa necessidade e, quando houver capability autorizada, obter a informação de uma fonte apropriada em vez de inventá-la.
+
+A arquitetura deve distinguir Memory, Knowledge, Trusted Session Context, Live Information e Tools/Actions. A seleção de capabilities deve ser genérica e baseada em contratos explícitos, preservando provenance, freshness, audit e os limites de autoridade existentes.
+
+Weather será o primeiro E2E de Live Information. A especificação detalhada está em `docs/roadmap/P2_DIGITAL_PRESENCE_AND_CAPABILITY_ROUTING.md`.
+
 ## Proatividade
 
 Pegasus deve progressivamente usar contexto e memória para reduzir trabalho do usuário, e não apenas responder perguntas.
@@ -117,14 +125,15 @@ A3 e A4/A5 continuam necessários para dar capacidade operacional local ao Pegas
 Após o primeiro E2E real e a Human Validation do Device Agent Local Loop, priorizar planejamento/execução dos blocos:
 
 1. Memory Intelligence / lifecycle e atualização de memória;
-2. Home contextual responsivo, reduzindo centralidade do chat;
-3. Daily Context / Briefing;
-4. Attention Engine e proatividade;
-5. Notification Gateway;
-6. automações persistentes e acompanhamento de pendências;
-7. Meetings / Meeting Copilot;
-8. integrações autorizadas com serviços externos;
-9. evolução multimodal e awareness sob autorização.
+2. Home contextual responsivo e Digital Presence, reduzindo centralidade do chat;
+3. Capability Routing e Live Information, começando por Weather;
+4. Daily Context / Briefing;
+5. Attention Engine e proatividade;
+6. Notification Gateway;
+7. automações persistentes e acompanhamento de pendências;
+8. Meetings / Meeting Copilot;
+9. integrações autorizadas com serviços externos;
+10. evolução multimodal e awareness sob autorização.
 
 A ordem detalhada desses blocos deve ser reavaliada após o E2E local, mas a direção de produto registrada neste documento não deve ser perdida.
 
