@@ -7,12 +7,14 @@ Live Information fornece evidência externa atual e read-only ao Core. Weather �
 ## Fluxo
 
 1. O Chat persiste a mensagem original do usuário.
-2. O resolver identifica deterministicamente se a pergunta requer Weather e extrai a localidade explícita.
-3. Sem localidade, o Pegasus pede a informação em vez de inferi-la.
-4. O provider consulta endpoints fixos de geocoding e forecast com timeout, `no-store` e sem credenciais.
-5. O resultado entra no Core como evidência efêmera `untrusted_external`, com fonte, observação, consulta e validade.
-6. O prompt exige fonte e atualidade. O Core mantém `executionAuthorization: none`.
-7. A resposta persiste no histórico com metadata de provenance/freshness, usando a coluna JSON já existente.
+2. O selector interpreta semanticamente a solicitação contra o catálogo explícito de capabilities e retorna apenas JSON estruturado.
+3. O Capability Registry valida identificador, input schema, categoria, read-only, approval, provider e health.
+4. Sem localidade ou período válido, o Pegasus pede a informação em vez de inferi-la.
+5. O provider consulta endpoints fixos de geocoding e forecast com timeout, `no-store` e sem credenciais.
+6. O Registry valida output, provenance e freshness, rejeitando resultados expirados.
+7. O resultado entra no Core como evidência efêmera `untrusted_external`, com fonte, observação, consulta e validade.
+8. O prompt exige fonte e atualidade. O Core mantém `executionAuthorization: none`.
+9. A resposta persiste no histórico com metadata de provenance/freshness, usando a coluna JSON já existente.
 
 ## Boundary de memória
 
@@ -24,7 +26,7 @@ Localidade ambígua, ausência de resultado, timeout, payload inválido ou falha
 
 ## Extensão
 
-Novas capabilities devem implementar `LiveInformationPort`, retornar a mesma estrutura de evidência e preservar: allowlist de endpoints, read-only, timeout, provenance, freshness, retenção efêmera e falha segura. Nenhuma capability consequencial pertence a este boundary.
+Novas capabilities devem registrar um `CapabilityDescriptor`, schemas, provider e validators no `CapabilityRegistry`. O selector não conhece APIs específicas e o provider não interpreta texto livre. Toda extensão deve preservar allowlist de endpoints, read-only, timeout, provenance, freshness, retenção efêmera e falha segura. Capabilities consequenciais permanecem recusadas neste checkpoint e exigirão Policy, Decision Guard, grants e Approval em etapa autorizada.
 
 ## Digital Presence
 

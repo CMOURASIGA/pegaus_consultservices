@@ -16,17 +16,19 @@ Atualizado em 2026-09-17.
 
 - Knowledge Store e adapter Drive somente leitura estão implementados por contrato, mas Google OAuth e documento real permanecem não validados.
 
-## Em execução
+## Implementado, aguardando Human Validation
 
-- `P2 - PEGASUS DIGITAL PRESENCE`: presença central, temas light/dark, estados visuais ligados à aplicação, contexto real e entrada universal.
+- `P2 - DIGITAL PRESENCE + CAPABILITY ROUTING`: presença central preparada para asset oficial, shell unificado, temas, estados reais e responsividade;
+- Capability Registry e seleção semântica estruturada, com Weather como primeiro E2E de Live Information;
+- provenance, freshness, audit/correlation, provider substituível, falha fechada e exclusão de Live Information da curadoria automática de Memory.
 
 ## Bloqueado deliberadamente
 
 - Google OAuth, Drive real e Calendar até autorização específica;
-- Device Agent, filesystem, Meeting Copilot e integrações externas durante o P2;
+- P3, Gmail, Calendar, Drive OAuth real, News/Search, Device Agent, filesystem e Meeting Copilot durante este checkpoint;
 - embeddings ativos até decisão explícita de modelo, custo, dimensão e política;
 - ações consequenciais sem Permission, Policy, Decision Guard, Approval, Execution e Audit.
 
 ## Próximo checkpoint
 
-`P2 - PEGASUS DIGITAL PRESENCE READY FOR HUMAN VALIDATION`. Após a publicação do Preview, parar para validação humana antes de qualquer incremento posterior.
+`P2 - DIGITAL PRESENCE + CAPABILITY ROUTING READY FOR HUMAN VALIDATION`. Após a publicação do Preview, parar para validação humana antes de qualquer incremento posterior.

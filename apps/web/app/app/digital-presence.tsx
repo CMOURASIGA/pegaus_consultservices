@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import type { CSSProperties } from 'react'
 
-export type DigitalPresenceState = 'ready' | 'listening' | 'processing' | 'speaking' | 'error' | 'offline'
+export type DigitalPresenceState = 'ready' | 'listening' | 'processing' | 'speaking' | 'error' | 'offline' | 'working' | 'approval_required'
 export type DigitalPresenceAsset = { src: string; alt?: string; width: number; height: number; priority?: boolean }
 
 export function DigitalPresence({ state, compact = false, label, asset }: { state: DigitalPresenceState; compact?: boolean; label: string; asset?: DigitalPresenceAsset }) {

@@ -12,6 +12,8 @@ export * from './orchestrator'
 export * from './memory'
 export * from './context-engine'
 export * from './knowledge-store'
+export * from './capability-routing'
+export * from './model-capability-selector'
 
 export async function checkSupabase(fetcher: typeof fetch = fetch): Promise<HealthComponent> {
   const started = Date.now()

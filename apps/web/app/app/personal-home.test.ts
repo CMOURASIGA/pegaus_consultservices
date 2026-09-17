@@ -64,6 +64,12 @@ describe('Personal Home foundation', () => {
     expect(chatShell).toContain("voiceState === 'listening'")
     expect(chatShell).toContain("voiceState === 'speaking'")
     expect(chatShell).toContain("status === 'processing'")
+    expect(presence).toContain("'working'")
+    expect(presence).toContain("'approval_required'")
+    expect(chatShell).not.toContain("visualState = 'working'")
+    expect(chatShell).not.toContain("visualState = 'approval_required'")
+    expect(chatShell).toContain('setTimeout(() => setBooting(false)')
+    expect(chatShell).not.toContain('booting ? null')
   })
 
   it('uses the existing Pegasus app icon instead of a textual mark on Home', () => {
