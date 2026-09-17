@@ -10,7 +10,13 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
 }
 
-export const viewport: Viewport = { themeColor: '#0b4ea2', colorScheme: 'light' }
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f3f7fc' },
+    { media: '(prefers-color-scheme: dark)', color: '#050a16' },
+  ],
+  colorScheme: 'light dark',
+}
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
