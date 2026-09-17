@@ -6,6 +6,8 @@ const chat = readFileSync(new URL('./chat/page.tsx', import.meta.url), 'utf8')
 const chatShell = readFileSync(new URL('./chat-shell.tsx', import.meta.url), 'utf8')
 const voice = readFileSync(new URL('./voice/page.tsx', import.meta.url), 'utf8')
 const shell = readFileSync(new URL('../product-shell.tsx', import.meta.url), 'utf8')
+const header = readFileSync(new URL('../pegasus-header.tsx', import.meta.url), 'utf8')
+const presence = readFileSync(new URL('./digital-presence.tsx', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8')
 const root = readFileSync(new URL('../page.tsx', import.meta.url), 'utf8')
 
@@ -40,7 +42,9 @@ describe('Personal Home foundation', () => {
     expect(chatShell).toContain('void startVoice()')
     expect(chatShell).toContain("voiceSurface || homeSurface")
     expect(chatShell).toContain("body.set('timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')")
-    expect(shell).toContain("{ href: '/app/chat', label: 'Conversas'")
+    expect(header).toContain("{ area: 'history', href: '/app/chat', label: 'Histórico' }")
+    expect(chatShell).toContain("action=\"/app/chat\"")
+    expect(chatShell).toContain("name=\"message\"")
   })
 
   it('renders a dedicated voice surface over the same ChatShell persistence flow', () => {
@@ -56,15 +60,26 @@ describe('Personal Home foundation', () => {
     expect(styles).toContain('.digital-home.theme-dark')
     expect(styles).toContain('@media (max-width: 760px)')
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)')
-    expect(chatShell).toContain("window.localStorage.setItem('pegasus-theme', next)")
+    expect(header).toContain("window.localStorage.setItem('pegasus-theme', next)")
     expect(chatShell).toContain("voiceState === 'listening'")
     expect(chatShell).toContain("voiceState === 'speaking'")
     expect(chatShell).toContain("status === 'processing'")
   })
 
   it('uses the existing Pegasus app icon instead of a textual mark on Home', () => {
-    expect(chatShell).toContain('src="/icon.svg"')
+    expect(header).toContain('src="/icon.svg"')
+    expect(presence).toContain('presence-figure')
+    expect(presence).not.toContain('src="/icon.svg"')
     expect(home).not.toContain('aria-hidden="true">P</span><strong>Pegasus</strong>')
+  })
+
+  it('shares the Pegasus shell across Home, Memory, History and Knowledge', () => {
+    expect(shell).toContain('<PegasusHeader')
+    expect(chatShell).toContain('<PegasusHeader current="pegasus"')
+    expect(chatShell).toContain('<PegasusHeader current="history"')
+    expect(header).toContain("href: '/memory'")
+    expect(header).toContain("href: '/knowledge'")
+    expect(shell).toContain('Voltar ao Pegasus')
   })
 
   it('routes the root URL according to the authenticated Supabase session', () => {
