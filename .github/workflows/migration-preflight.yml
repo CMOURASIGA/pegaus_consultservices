@@ -1,0 +1,52 @@
+name: Migration Preflight
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/migration-preflight.mjs"
+      - ".github/workflows/migration-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Install pinned PostgreSQL test driver without changing lockfile
+        run: npm install --no-save --package-lock=false pg@8.16.3
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.39.2
+      - name: Start clean disposable Supabase without repository migrations
+        run: |
+          mkdir -p /tmp/pegasus-preflight
+          mv supabase/migrations /tmp/pegasus-preflight/migrations
+          supabase init --force
+          supabase start
+      - name: Build effective audited baseline and apply Migrations 011 and 012
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for migration in             /tmp/pegasus-preflight/migrations/00[1-6]_*.sql             /tmp/pegasus-preflight/migrations/00[8-9]_*.sql             /tmp/pegasus-preflight/migrations/010_*.sql             /tmp/pegasus-preflight/migrations/011_*.sql             /tmp/pegasus-preflight/migrations/012_*.sql             /tmp/pegasus-preflight/migrations/013_*.sql
+          do
+            echo "Applying $(basename "$migration")"
+            psql --host 127.0.0.1 --port 54322 --username postgres --dbname postgres               --set ON_ERROR_STOP=1 --file "$migration"
+          done
+      - name: Run grants, RLS, atomicity and concurrency preflight
+        env:
+          PREFLIGHT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: node scripts/migration-preflight.mjs
+      - name: Capture local service status on failure
+        if: failure()
+        run: supabase status || true
