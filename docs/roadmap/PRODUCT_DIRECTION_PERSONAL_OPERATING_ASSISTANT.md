@@ -1,10 +1,12 @@
 # Pegasus - Direção de Produto: Assistente Pessoal Operacional
 
-Atualizado em 2026-09-17.
+Atualizado em 2026-10-20.
 
 ## Decisão de produto
 
 Pegasus não deve evoluir para apenas um chatbot com memória. O objetivo é uma única IA pessoal, contextual, proativa e operacional, capaz de apoiar Christian nas atividades pessoais e profissionais em diferentes dispositivos, preservando autoridade humana, privacidade e segurança.
+
+A experiência também deverá possuir uma presença holográfica personalizada, visualmente inspirada na aparência autorizada pelo proprietário. Essa presença é uma camada de identidade visual do produto e não é identidade autenticada: não reconhece rostos, não cria biometria e não concede acesso ou autorização. O escopo, o pipeline e os critérios de aceite estão em `docs/roadmap/P3_PERSONALIZED_HOLOGRAPHIC_AVATAR.md`.
 
 O chat textual permanece disponível, mas não deve ser a ação principal nem definir sozinho a experiência do frontend.
 
@@ -150,4 +152,3 @@ O produto estará se aproximando da visão quando Christian puder abrir ou chama
 - o que precisa de decisão;
 - o que Pegasus pode fazer por ele;
 - e, quando autorizado, mandar executar uma ação sem precisar operar manualmente cada ferramenta.
-

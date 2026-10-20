@@ -147,7 +147,7 @@ describe('ChatService', () => {
   it('preserves pending capability and parameters through the real multi-turn Chat service path', async () => {
     const store = new MemoryChatStore()
     const descriptor: CapabilityDescriptor = { id: 'live.weather', description: 'Previsão meteorológica por local e data.', category: 'live_information', inputSchema: { type: 'object', required: ['location', 'date'] }, outputSchema: { type: 'array' }, provider: 'weather-test', freshnessTtlMs: 1_800_000, readOnly: true, approval: 'none', audit: { eventPrefix: 'weather' } }
-    const evidence: LiveInformationEvidence[] = [{ capability: 'live.weather', provider: 'weather-test', sourceName: 'Weather Test', sourceUrl: 'https://weather.test', observedAt: '2026-09-17T12:00:00Z', retrievedAt: '2026-09-17T12:01:00Z', validUntil: '2026-09-18T13:00:00Z', value: 'Previsão confirmada.', trust: 'untrusted_external', retention: 'ephemeral' }]
+    const evidence: LiveInformationEvidence[] = [{ capability: 'live.weather', provider: 'weather-test', sourceName: 'Weather Test', sourceUrl: 'https://weather.test', observedAt: new Date().toISOString(), retrievedAt: new Date().toISOString(), validUntil: new Date(Date.now() + 60 * 60_000).toISOString(), value: 'Previsão confirmada.', trust: 'untrusted_external', retention: 'ephemeral' }]
     const provider: CapabilityProviderPort = { id: 'weather-test', health: async () => 'available', execute: vi.fn().mockResolvedValue(evidence) }
     const selector = { select: vi.fn()
       .mockResolvedValueOnce({ status: 'needs_input', capabilityId: 'live.weather', intent: 'consultar previsão', knownParameters: { date: 'tomorrow' }, missingParameters: ['location'], message: 'Para qual cidade?' })

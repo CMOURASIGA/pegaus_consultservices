@@ -1,6 +1,6 @@
 # P2 — Digital Presence + Capability Routing
 
-Atualizado em 2026-09-17.
+Atualizado em 2026-10-20.
 
 ## Decisão de produto
 
@@ -36,7 +36,7 @@ A presença final deve ser uma identidade própria do produto Pegasus:
 - busto/presença central, não fotografia;
 - sofisticado e tecnológico, porém limpo;
 - não copiar Jarvis, Homem de Ferro ou outra propriedade visual existente;
-- não representar Christian;
+- não usar representação personalizada de Christian neste checkpoint; a decisão foi revisada e está especificada separadamente em `docs/roadmap/P3_PERSONALIZED_HOLOGRAPHIC_AVATAR.md`;
 - sem reconhecimento facial ou biometria nesta etapa.
 
 A referência visual fornecida pelo PO é direção artística, não asset a ser copiado literalmente.
@@ -251,7 +251,7 @@ Não iniciar neste bloco:
 - reconhecimento facial/biometria;
 - lip-sync;
 - wake word;
-- P3.
+- P3 e, especificamente, a personalização visual do proprietário, tratada por `P3_PERSONALIZED_HOLOGRAPHIC_AVATAR.md`.
 
 ---
 

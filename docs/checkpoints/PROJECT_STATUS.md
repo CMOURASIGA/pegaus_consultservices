@@ -1,6 +1,6 @@
 # Pegasus: estado oficial de execução
 
-Atualizado em 2026-09-17.
+Atualizado em 2026-10-20.
 
 ## Concluído e validado
 
@@ -22,12 +22,14 @@ Atualizado em 2026-09-17.
 - continuidade de capability e parâmetros na mesma Conversation entre Chat, Home e Voice, com ruptura explícita em `Nova conversa`;
 - Capability Registry e seleção semântica estruturada, com Weather multi-turn e single-turn como primeiro E2E de Live Information;
 - provenance, freshness, audit/correlation, provider substituível, falha fechada e exclusão de Live Information da curadoria automática de Memory;
-- presença central continua preparada para o asset oficial, que permanece pendente do PO e não bloqueia P2.1.
+- presença central continua preparada para um asset oficial, que permanece pendente do PO e não bloqueia P2.1;
+- a personalização holográfica inspirada na aparência do proprietário foi especificada, mas ainda não foi implementada nem aprovada.
 
 ## Bloqueado deliberadamente
 
 - Google OAuth, Drive real e Calendar até autorização específica;
 - P3, Gmail, Calendar, Drive OAuth real, News/Search, Device Agent, filesystem e Meeting Copilot durante este checkpoint;
+- avatar personalizado, reconhecimento facial, biometria, lip-sync e câmera permanecem fora do checkpoint P2.1;
 - embeddings ativos até decisão explícita de modelo, custo, dimensão e política;
 - ações consequenciais sem Permission, Policy, Decision Guard, Approval, Execution e Audit.
 

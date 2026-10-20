@@ -3,6 +3,7 @@
 ## 00 - Product
 
 - [Project Overview](00-product/PROJECT_OVERVIEW.md)
+- [Product Direction — Personal Operating Assistant](roadmap/PRODUCT_DIRECTION_PERSONAL_OPERATING_ASSISTANT.md)
 
 ## 01 - Architecture
 
@@ -27,6 +28,17 @@
 - [Screen Spec](02-design/SCREEN_SPEC.md)
 - [Responsive](02-design/RESPONSIVE.md)
 - [UX States](02-design/UX_STATES.md)
+- [Personalized Avatar Asset Pipeline](architecture/PERSONALIZED_AVATAR_ASSET_PIPELINE.md)
+
+## Roadmap
+
+- [P2 — Digital Presence + Capability Routing](roadmap/P2_DIGITAL_PRESENCE_AND_CAPABILITY_ROUTING.md)
+- [P2.1 — Conversation Intelligence + Research Routing](roadmap/P2_1_CONVERSATION_INTELLIGENCE_AND_RESEARCH_ROUTING.md)
+- [P3.1 — Personalized Holographic Avatar](roadmap/P3_PERSONALIZED_HOLOGRAPHIC_AVATAR.md)
+
+## Checkpoints
+
+- [Repository Audit — 2026-10-20](checkpoints/REPOSITORY_AUDIT_2026-10-20.md)
 
 ## Status
 

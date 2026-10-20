@@ -1,6 +1,12 @@
 # Pegasus
 
-Assistente pessoal e profissional privado da Consult Services. Este repositório é spec-driven. Leia [DEV_START_HERE.md](DEV_START_HERE.md) antes de implementar funcionalidades.
+Assistente pessoal e profissional privado da Consult Services. O objetivo é evoluir para uma IA pessoal operacional, com texto, voz, memória, contexto, capabilities autorizadas e uma presença holográfica visual personalizada. Este repositório é spec-driven. Leia [DEV_START_HERE.md](DEV_START_HERE.md) antes de implementar funcionalidades.
+
+## Estado atual
+
+O `main` contém o estado implementado mais avançado do projeto: fundação, autenticação, Core/AI Router, Web/PWA, chat, voz, memória/contexto, Home, Capability Routing e o E2E de Weather com continuidade multi-turn. O checkpoint P2.1 ainda requer validação humana no Preview.
+
+O avatar inspirado na aparência do proprietário é uma etapa posterior e foi especificado em [P3 — Avatar holográfico personalizado](docs/roadmap/P3_PERSONALIZED_HOLOGRAPHIC_AVATAR.md). A aparência não será usada para autenticação, autorização ou reconhecimento facial.
 
 ## Requisitos locais
 
@@ -55,6 +61,15 @@ docs             especificações e decisões
 - páginas protegidas validam claims, perfil ativo e revogação da sessão Pegasus;
 - conteúdo sensível não deve ser registrado em logs;
 - migrations automatizadas permanecem desabilitadas até a reconciliação descrita no checklist Supabase.
+- referências fotográficas, embeddings faciais e dados biométricos não devem ser commitados, logados ou enviados ao runtime;
+- o avatar é apenas apresentação visual e nunca substitui passkey, TOTP, aprovação ou Decision Guard.
+
+## Direcionamento e specs principais
+
+- [Direção de produto — Assistente Pessoal Operacional](docs/roadmap/PRODUCT_DIRECTION_PERSONAL_OPERATING_ASSISTANT.md)
+- [P2.1 — Conversation Intelligence + Research Routing](docs/roadmap/P2_1_CONVERSATION_INTELLIGENCE_AND_RESEARCH_ROUTING.md)
+- [P3.1 — Avatar holográfico personalizado](docs/roadmap/P3_PERSONALIZED_HOLOGRAPHIC_AVATAR.md)
+- [Pipeline seguro de assets do avatar](docs/architecture/PERSONALIZED_AVATAR_ASSET_PIPELINE.md)
 
 ## Docker
 
