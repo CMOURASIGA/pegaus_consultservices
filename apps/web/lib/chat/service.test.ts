@@ -144,6 +144,26 @@ describe('ChatService', () => {
     expect(curator.capture).toHaveBeenCalledWith(expect.objectContaining({ content: 'Pegasus, lembre disso para mim.', referenceContent: 'O projeto usa Supabase.', referenceSource: { kind: 'user_message', ref: expect.stringMatching(/^message:/) } }))
   })
 
+  it('confirms explicit memory only after the curator reports persistence', async () => {
+    const store = new MemoryChatStore()
+    const handle = vi.fn()
+    const curator = { capture: vi.fn().mockResolvedValue({ action: 'persist', memory: { id: 'memory-1' } }) }
+    const result = await new ChatService(store, { handle }, curator).send({ actorId: 'owner-a', content: 'Lembre que prefiro revisar a especificação antes de autorizar o desenvolvimento.' })
+    expect(result.assistantMessage.content).toContain('Guardei essa informação')
+    expect(result.memory).toEqual({ action: 'persist', memoryId: 'memory-1' })
+    expect(handle).not.toHaveBeenCalled()
+  })
+
+  it('does not claim persistence when the curator fails', async () => {
+    const store = new MemoryChatStore()
+    const handle = vi.fn()
+    const curator = { capture: vi.fn().mockRejectedValue(new Error('write failed')) }
+    const result = await new ChatService(store, { handle }, curator).send({ actorId: 'owner-a', content: 'Lembre que prefiro revisar a especificação antes de autorizar o desenvolvimento.' })
+    expect(result.assistantMessage.content).toContain('Não consegui confirmar a gravação')
+    expect(result.memory).toEqual({ action: 'discard', reason: 'curation_failed' })
+    expect(handle).not.toHaveBeenCalled()
+  })
+
   it('preserves pending capability and parameters through the real multi-turn Chat service path', async () => {
     const store = new MemoryChatStore()
     const descriptor: CapabilityDescriptor = { id: 'live.weather', description: 'Previsão meteorológica por local e data.', category: 'live_information', inputSchema: { type: 'object', required: ['location', 'date'] }, outputSchema: { type: 'array' }, provider: 'weather-test', freshnessTtlMs: 1_800_000, readOnly: true, approval: 'none', audit: { eventPrefix: 'weather' } }

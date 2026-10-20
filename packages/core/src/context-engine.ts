@@ -13,7 +13,7 @@ export interface ConversationContextSource {
 
 const defaultBudget: ContextBudget = { maxItems: 6, maxCharacters: 4_000, maxItemCharacters: 1_000 }
 const stopWords = new Set(['a','as','o','os','de','da','das','do','dos','e','em','para','por','que','um','uma','me','eu','com','no','na','nos','nas'])
-const aliases: Record<string, readonly string[]> = { esposa: ['mulher', 'conjuge'], marido: ['homem', 'conjuge'], grafica: ['7grafica'], projeto: ['sistema'], sistema: ['projeto'] }
+const aliases: Record<string, readonly string[]> = { esposa: ['mulher', 'conjuge'], marido: ['homem', 'conjuge'], grafica: ['7grafica'], projeto: ['sistema'], sistema: ['projeto'], preferencia: ['prefiro', 'preferencias'], preferencias: ['preferencia', 'prefiro'], prefiro: ['preferencia', 'preferencias'] }
 const provenanceFollowUpPattern = /\b(?:por que você sabe|quando (?:eu )?(?:disse|falei)|de onde você sabe|quem (?:informou|forneceu|disse))\b/iu
 
 function terms(value: string) {

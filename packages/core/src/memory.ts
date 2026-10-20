@@ -74,6 +74,9 @@ export function containsSecret(content: string) {
 export function isDeicticMemoryRequest(content: string) {
   return /^(?:(?:pegasus)[,!:]?\s*)?(?:por favor,?\s*)?(?:lembre(?:-se)?|guarde|memorize|registre)\s+(?:disso|isto|essa informação)(?:\s+para mim)?[.!]?$/iu.test(content.trim())
 }
+export function isExplicitMemoryInstruction(content: string) {
+  return explicitMemory.test(content.trim()) || isDeicticMemoryRequest(content)
+}
 
 function inferType(content: string): MemoryType {
   if (/(?:\b(?:prefiro|preferência|sempre use|nunca use)\b|\bquero(?: também)? que você)/iu.test(content)) return 'working_profile'

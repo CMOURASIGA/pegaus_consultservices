@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { AiRouter, AiRouterError, FakeAiProvider, OpenAiProvider, PegasusCore, isDeicticMemoryRequest } from '@pegasus/core'
+import { AiRouter, AiRouterError, FakeAiProvider, OpenAiProvider, PegasusCore, isDeicticMemoryRequest, isExplicitMemoryInstruction } from '@pegasus/core'
 import type { CapabilityRouter, ContextPort, InteractionRequest, MemoryCurator, RouterConfig, RouterObserver } from '@pegasus/core'
 import { readServerConfig } from '@pegasus/config'
 import { logger } from '@pegasus/logging'
@@ -89,6 +89,15 @@ export class ChatService {
       logger.warn('memory.curation_failed', { correlationId, errorCode: error instanceof Error ? error.name : 'unknown' })
       return { action: 'discard' as const, reason: 'curation_failed' as const }
     })
+    if (live.status === 'not_applicable' && isExplicitMemoryInstruction(content)) {
+      const memoryResult = curation?.action === 'persist'
+        ? { content: 'Guardei essa informação na sua memória persistente. Você pode revisá-la ou corrigi-la na área Memória.', memory: { action: 'persist' as const, memoryId: curation.memory.id } }
+        : curation?.reason === 'sensitive'
+          ? { content: 'Não guardei essa informação porque ela pode conter um dado sensível ou uma credencial.', memory: { action: 'discard' as const, reason: 'sensitive' as const } }
+          : { content: 'Não consegui confirmar a gravação dessa memória agora. A informação não foi apresentada como guardada.', memory: { action: 'discard' as const, reason: curation?.reason ?? 'curator_unavailable' as const } }
+      const assistantMessage = await this.store.createMessage({ ownerId: input.actorId, conversationId: conversation.id, role: 'assistant', content: memoryResult.content, correlationId, provider: 'pegasus-memory', model: 'deterministic-memory-confirmation' })
+      return { conversation, userMessage, assistantMessage, correlationId, provider: 'pegasus-memory', model: 'deterministic-memory-confirmation', memory: memoryResult.memory }
+    }
     request.liveInformation = live.status === 'available' ? live.evidence : undefined
     try {
       const result = await this.core.handle(request)

@@ -56,7 +56,7 @@ describe('ContextEngine', () => {
     expect(observer.record).toHaveBeenCalledWith(expect.objectContaining({ sources: { document: 1 } }))
   })
 
-  it('recovers personal and professional memories selectively across conversations', async () => {
+  it('retrieves personal and professional memories selectively across conversations', async () => {
     const repository = new Repository([
       base({ id: 'wife', title: 'relationship:spouse', content: 'Minha esposa se chama Bianca.', type: 'relationship', scope: 'personal' }),
       base({ id: 'project', title: 'project:7grafica', content: 'O sistema 7Grafica administra uma gráfica.', type: 'project', scope: 'professional' }),
@@ -64,6 +64,14 @@ describe('ContextEngine', () => {
     ])
     expect((await new ContextEngine(repository).assemble(request('Qual é o nome da minha esposa?'))).items.map((item) => item.source)).toEqual(['memory:wife:conversation'])
     expect((await new ContextEngine(repository).assemble(request('Estou pensando em mudar a arquitetura do projeto 7Grafica.'))).items.map((item) => item.source)).toEqual(expect.arrayContaining(['memory:project:conversation', 'memory:preference:conversation']))
+  })
+
+  it('recovers an explicit technical-review preference in a new conversation', async () => {
+    const repository = new Repository([
+      base({ id: 'review-preference', title: 'preference:product-development', type: 'working_profile', scope: 'professional', content: 'prefiro revisar a especificação técnica antes de autorizar o desenvolvimento de qualquer funcionalidade.', authority: 'explicit_user', confidence: 1, relevance: 1 }),
+    ])
+    const context = await new ContextEngine(repository).assemble(request('Qual é a minha preferência antes de autorizar o desenvolvimento de uma funcionalidade?'))
+    expect(context.items).toEqual([expect.objectContaining({ source: 'memory:review-preference:conversation', value: expect.stringContaining('prefiro revisar a especificação técnica') })])
   })
 
   it('returns no memory when none is relevant', async () => {

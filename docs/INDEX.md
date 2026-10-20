@@ -39,6 +39,7 @@
 ## Checkpoints
 
 - [Repository Audit — 2026-10-20](checkpoints/REPOSITORY_AUDIT_2026-10-20.md)
+- [P2.1 Corrections Report — 2026-10-20](checkpoints/P2_1_CORRECTIONS_REPORT_2026-10-20.md)
 
 ## Status
 

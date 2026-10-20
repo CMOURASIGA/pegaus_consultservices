@@ -72,6 +72,12 @@ describe('Personal Home foundation', () => {
     expect(chatShell).not.toContain('booting ? null')
   })
 
+  it('keeps assistant bubbles readable in dark History', () => {
+    expect(styles).toContain('.chat-app-shell .chat-message.assistant p')
+    expect(styles).toContain('background: var(--presence-surface-strong)')
+    expect(styles).toContain('color: var(--presence-text)')
+  })
+
   it('uses the existing Pegasus app icon instead of a textual mark on Home', () => {
     expect(header).toContain('src="/icon.svg"')
     expect(presence).toContain('presence-figure')
