@@ -303,3 +303,9 @@ button, a, input, textarea, select { font: inherit; }
 @keyframes presence-orbit-in { from { opacity: 0; transform: scale(.55) rotate(-35deg); } to { opacity: 1; } }
 @media (max-width: 760px) { .product-section-header { min-height: 58px; padding: 8px 14px; }.product-section-header a { font-size: 12px; }.product-content { width: calc(100% - 28px); }.chat-app-shell .chat-app { height: calc(100dvh - 112px); }.chat-app-shell .chat-sidebar { height: calc(100dvh - 112px); top: 112px; }.voice-stage .pegasus-presence.compact { width: min(230px,34dvh,58vw); } }
 @media (prefers-reduced-motion: reduce) { .product-shell *, .chat-app-shell *, .voice-surface * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* Pegasus original digital human: responsive, accessible, low-motion fallback. */
+.pegasus-presence.has-official-asset .presence-asset-stage { inset: -20% -15% -7%; overflow: hidden; border-radius: 45% 45% 36% 36%; -webkit-mask-image: radial-gradient(ellipse 49% 48% at 50% 49%,#000 50%,transparent 100%); mask-image: radial-gradient(ellipse 49% 48% at 50% 49%,#000 50%,transparent 100%); }
+.pegasus-presence.has-official-asset .presence-official-asset { object-fit: cover; object-position: center 25%; filter: drop-shadow(0 0 18px var(--state-glow)) saturate(1.16); }
+.pegasus-presence.has-official-asset.speaking .presence-official-asset { filter: drop-shadow(0 0 28px var(--state-glow)) saturate(1.3) brightness(1.1); }
+@media (prefers-reduced-motion: reduce) { .pegasus-presence .presence-asset-stage, .pegasus-presence .presence-orbit, .pegasus-presence .particle-field i { animation: none !important; } }
