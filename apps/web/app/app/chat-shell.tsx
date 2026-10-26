@@ -29,7 +29,7 @@ type Props = {
   }
 }
 
-const PEGASUS_DIGITAL_HUMAN = { src: '/pegasus-digital-human.webp', width: 600, height: 912, alt: 'Presença digital holográfica original do Pegasus' } as const
+const PEGASUS_DIGITAL_HUMAN = { src: '/pegasus-digital-human.webp', width: 600, height: 832, alt: 'Pegasus, assistente digital masculino com aparência holográfica azul' } as const
 
 type RequestError = { error?: { code?: string; message?: string } }
 
@@ -83,6 +83,12 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     voiceCapture.current?.cancel()
     voiceOutput.current?.cancel()
   }, [])
+  useEffect(() => {
+    if (!voiceSurface) return
+    const handleVisibility = () => { if (document.visibilityState === 'hidden') cancelVoice(false) }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [voiceSurface])
   useEffect(() => {
     if (!initialVoiceIntent || voiceIntentStarted.current) return
     voiceIntentStarted.current = true
@@ -158,10 +164,18 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     const output = voiceOutput.current ?? new BrowserTextToSpeech()
     voiceOutput.current = output
     if (!output.isAvailable()) { voiceSessionActive.current = false; setVoiceState('idle'); setVoiceMessage('Resposta criada. A leitura em voz não está disponível neste navegador.'); return }
+    const sessionEpoch = voiceSessionEpoch.current
     setVoiceState('speaking'); setVoiceMessage('Pegasus está respondendo em voz. Toque no microfone para interromper.')
     output.speak(text, {
-      onEnd: () => { if (voiceSessionActive.current) void startVoice(); else { setVoiceState('idle'); setVoiceMessage('') } },
-      onError: () => { voiceSessionActive.current = false; setVoiceState('error'); setVoiceMessage('A resposta foi criada, mas não pôde ser reproduzida em voz.') },
+      onEnd: () => {
+        if (sessionEpoch !== voiceSessionEpoch.current) return
+        if (voiceSessionActive.current) void startVoice()
+        else { setVoiceState('idle'); setVoiceMessage('') }
+      },
+      onError: () => {
+        if (sessionEpoch !== voiceSessionEpoch.current) return
+        voiceSessionActive.current = false; setVoiceState('error'); setVoiceMessage('A resposta foi criada, mas não pôde ser reproduzida em voz.')
+      },
     })
   }
 
@@ -212,6 +226,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     voiceSessionActive.current = false
     voiceSessionEpoch.current++
     voiceController.current?.abort()
+    controller.current?.abort()
     voiceCapture.current?.cancel()
     voiceOutput.current?.cancel()
     voiceCapture.current = null
@@ -222,7 +237,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
 
   function toggleVoice() {
     if (voiceState === 'listening') void finishVoice()
-    else if (voiceState === 'speaking') { voiceOutput.current?.cancel(); void startVoice() }
+    else if (voiceState === 'speaking') void startVoice()
     else void startVoice()
   }
 
