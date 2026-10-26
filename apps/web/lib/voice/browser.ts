@@ -27,16 +27,20 @@ export function toSpeechText(markdown: string) {
 export class VoiceActivityDetector {
   private speechDetected = false
   private lastSpeechAt = 0
+  private startedSpeechAt: number | null = null
 
   constructor(private readonly startedAt: number) {}
 
   sample(level: number, now: number) {
     if (now - this.startedAt >= MAX_CAPTURE_DURATION_MS) return true
     if (level >= SILENCE_THRESHOLD) {
-      this.speechDetected = true
-      this.lastSpeechAt = now
+      this.startedSpeechAt ??= now
+      // A short noise spike must not trigger a transcription request.
+      if (now - this.startedSpeechAt >= 160) this.speechDetected = true
+      if (this.speechDetected) this.lastSpeechAt = now
       return false
     }
+    this.startedSpeechAt = null
     return this.speechDetected && now - this.lastSpeechAt >= SILENCE_DURATION_MS
   }
 }

@@ -59,8 +59,16 @@ describe('voice provider boundaries', () => {
     const detector = new VoiceActivityDetector(0)
     expect(detector.sample(0.001, 1_000)).toBe(false)
     expect(detector.sample(0.04, 1_100)).toBe(false)
+    expect(detector.sample(0.04, 1_300)).toBe(false)
     expect(detector.sample(0.001, 2_000)).toBe(false)
     expect(detector.sample(0.001, 2_601)).toBe(true)
+  })
+
+  it('ignores brief microphone noise bursts instead of sending empty transcripts', () => {
+    const detector = new VoiceActivityDetector(0)
+    expect(detector.sample(0.04, 1_000)).toBe(false)
+    expect(detector.sample(0.001, 1_090)).toBe(false)
+    expect(detector.sample(0.001, 5_000)).toBe(false)
   })
 
   it('enforces the maximum capture duration even in continuous noise', () => {
