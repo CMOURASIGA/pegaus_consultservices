@@ -56,6 +56,8 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
   const shouldFollowMessages = useRef(true)
   const voiceIntentStarted = useRef(false)
+  // Explicit session lifetime: microphone cannot restart after the user ends the conversation.
+  const voiceSessionActive = useRef(false)
   const startVoiceFromIntent = useRef<() => void>(() => undefined)
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     input.style.overflowY = input.scrollHeight > 160 ? 'auto' : 'hidden'
   }, [content])
   useEffect(() => () => {
+    voiceSessionActive.current = false
     voiceController.current?.abort()
     voiceCapture.current?.cancel()
     voiceOutput.current?.cancel()
@@ -133,7 +136,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
     } catch (caught) {
       if (abortController.signal.aborted) { setStatus('cancelled'); setError('A geração foi cancelada. Sua mensagem continua visível nesta tela.') }
       else { setStatus('error'); setError(caught instanceof Error ? caught.message : 'Não foi possível concluir a mensagem.') }
-      if (speakResponse) setVoiceState(abortController.signal.aborted ? 'cancelled' : 'error')
+      if (speakResponse) { voiceSessionActive.current = false; setVoiceState(abortController.signal.aborted ? 'cancelled' : 'error') }
     } finally { controller.current = null }
   }
 
@@ -150,16 +153,17 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   function speakAssistant(text: string) {
     const output = voiceOutput.current ?? new BrowserTextToSpeech()
     voiceOutput.current = output
-    if (!output.isAvailable()) { setVoiceState('idle'); setVoiceMessage('Resposta criada. A leitura em voz não está disponível neste navegador.'); return }
+    if (!output.isAvailable()) { voiceSessionActive.current = false; setVoiceState('idle'); setVoiceMessage('Resposta criada. A leitura em voz não está disponível neste navegador.'); return }
     setVoiceState('speaking'); setVoiceMessage('Pegasus está respondendo em voz. Toque no microfone para interromper.')
     output.speak(text, {
-      onEnd: () => { if (voiceSurface || homeSurface) void startVoice(); else { setVoiceState('idle'); setVoiceMessage('') } },
-      onError: () => { setVoiceState('error'); setVoiceMessage('A resposta foi criada, mas não pôde ser reproduzida em voz.') },
+      onEnd: () => { if (voiceSessionActive.current) void startVoice(); else { setVoiceState('idle'); setVoiceMessage('') } },
+      onError: () => { voiceSessionActive.current = false; setVoiceState('error'); setVoiceMessage('A resposta foi criada, mas não pôde ser reproduzida em voz.') },
     })
   }
 
   async function startVoice() {
     if (status === 'processing' || voiceState === 'processing' || voiceState === 'requesting_permission') return
+    voiceSessionActive.current = true
     voiceOutput.current?.cancel()
     setVoiceState('requesting_permission'); setVoiceMessage('Aguardando permissão do microfone...'); setError('')
     const capture = new BrowserVoiceCapture()
@@ -169,6 +173,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
       setVoiceState('listening'); setVoiceMessage('Estou ouvindo. Ao terminar de falar, aguarde um instante ou toque para concluir.')
     } catch (caught) {
       const safe = mapMicrophoneError(caught)
+      voiceSessionActive.current = false
       setVoiceState('error'); setVoiceMessage(safe.message)
       voiceCapture.current = null
     }
@@ -196,6 +201,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   }
 
   function cancelVoice(showMessage = true) {
+    voiceSessionActive.current = false
     voiceController.current?.abort()
     voiceCapture.current?.cancel()
     voiceOutput.current?.cancel()
@@ -260,7 +266,7 @@ export function ChatShell({ displayName, conversations: initialConversations, ac
   if (voiceSurface) {
     const stateLabel = voiceState === 'listening' ? 'Estou ouvindo' : voiceState === 'processing' ? 'Processando sua mensagem' : voiceState === 'speaking' ? 'Pegasus está falando' : voiceState === 'requesting_permission' ? 'Preparando o microfone' : voiceState === 'error' ? 'Não foi possível usar a voz' : 'Pronto para conversar'
     const visualState: DigitalPresenceState = voiceState === 'listening' ? 'listening' : voiceState === 'processing' || voiceState === 'requesting_permission' ? 'processing' : voiceState === 'speaking' ? 'speaking' : voiceState === 'error' ? 'error' : 'ready'
-    return <main className={`voice-surface theme-${theme}`} aria-live="polite"><header><a href={conversation?.id ? `/app?conversation=${conversation.id}` : '/app'} onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><DigitalPresence state={visualState} compact label={stateLabel} /><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Quando estiver pronto, inicie a conversa por voz.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir gravação' : 'Começar conversa'}>{voiceState === 'listening' ? 'Concluir' : 'Começar conversa'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
+    return <main className={`voice-surface theme-${theme}`} aria-live="polite"><header><a href={conversation?.id ? `/app?conversation=${conversation.id}` : '/app'} onClick={() => cancelVoice(false)}>← Voltar</a><strong>Pegasus</strong><button type="button" onClick={() => cancelVoice()}>Encerrar</button></header><section className="voice-stage"><DigitalPresence state={visualState} compact label={stateLabel} /><p className="eyebrow">CONVERSA POR VOZ</p><h1>{stateLabel}</h1><p>{voiceMessage || 'Depois de iniciar, fale normalmente. Uma pausa na fala envia sua pergunta; após a resposta, volto a ouvir.'}</p><div className="voice-surface-controls"><button className="voice-main-control" type="button" onClick={toggleVoice} aria-label={voiceState === 'listening' ? 'Concluir fala agora' : 'Começar conversa'}>{voiceState === 'listening' ? 'Enviar agora' : 'Começar conversa'}</button>{voiceState === 'speaking' ? <button className="secondary-button" type="button" onClick={() => cancelVoice()}>Interromper</button> : null}</div></section></main>
   }
 
   return (
